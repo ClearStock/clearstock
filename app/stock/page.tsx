@@ -1,0 +1,91 @@
+import { db } from "@/lib/db";
+import { getRestaurant } from "@/lib/data-access";
+import { PageHeader } from "@/components/page-header";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+
+export const dynamic = "force-dynamic";
+
+export default async function StockPage() {
+  const restaurant = await getRestaurant();
+
+  const batches = await db.productBatch.findMany({
+    where: {
+      restaurantId: restaurant.id,
+    },
+    include: {
+      category: true,
+      location: true,
+    },
+    orderBy: {
+      expiryDate: "asc",
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Stock"
+        description="Lista de produtos em stock e respetivas validades."
+      />
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Produto</TableHead>
+            <TableHead>Quantidade</TableHead>
+            <TableHead>Categoria</TableHead>
+            <TableHead>Localização</TableHead>
+            <TableHead>Validade</TableHead>
+            <TableHead>Estado</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {batches.map((batch) => (
+            <TableRow key={batch.id}>
+              <TableCell>{batch.name}</TableCell>
+              <TableCell>
+                {batch.quantity} {batch.unit}
+              </TableCell>
+              <TableCell>{batch.category?.name ?? "-"}</TableCell>
+              <TableCell>{batch.location?.name ?? "-"}</TableCell>
+              <TableCell>
+                {format(new Date(batch.expiryDate), "dd/MM/yyyy")}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={
+                    batch.status === "ACTIVE"
+                      ? "default"
+                      : batch.status === "EXPIRED"
+                      ? "destructive"
+                      : "secondary"
+                  }
+                >
+                  {batch.status}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+        {batches.length === 0 && (
+          <TableCaption>
+            Ainda não existem produtos em stock. Adicione uma entrada em
+            &quot;Nova Entrada&quot;.
+          </TableCaption>
+        )}
+      </Table>
+    </div>
+  );
+}
+
+
