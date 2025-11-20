@@ -31,37 +31,51 @@ export function getBatchStatus(
   batch: BatchWithRelations,
   restaurant: Restaurant
 ) {
-  const today = new Date();
-  const daysToExpiry = differenceInCalendarDays(
-    new Date(batch.expiryDate),
-    today
-  );
+  try {
+    const today = new Date();
+    
+    // Garantir que expiryDate é convertido para Date
+    const expiryDate =
+      typeof batch.expiryDate === "string"
+        ? new Date(batch.expiryDate)
+        : batch.expiryDate;
 
-  const urgentDays =
-    batch.category?.alertDaysBeforeExpiry ?? restaurant.alertDaysBeforeExpiry;
+    if (isNaN(expiryDate.getTime())) {
+      return { label: "Data inválida", variant: "secondary" as const };
+    }
 
-  const warningDays =
-    batch.category?.warningDaysBeforeExpiry ?? urgentDays;
+    const daysToExpiry = differenceInCalendarDays(expiryDate, today);
 
-  if (daysToExpiry < 0) {
-    return { label: "Expirado", variant: "destructive" as const };
+    const urgentDays =
+      batch.category?.alertDaysBeforeExpiry ??
+      (restaurant?.alertDaysBeforeExpiry ?? 3);
+
+    const warningDays =
+      batch.category?.warningDaysBeforeExpiry ?? urgentDays;
+
+    if (daysToExpiry < 0) {
+      return { label: "Expirado", variant: "destructive" as const };
+    }
+
+    if (daysToExpiry <= urgentDays) {
+      return {
+        label: `Urgente usar (${daysToExpiry} dias)`,
+        variant: "destructive" as const,
+      };
+    }
+
+    if (daysToExpiry <= warningDays) {
+      return {
+        label: `A expirar em breve (${daysToExpiry} dias)`,
+        variant: "default" as const,
+      };
+    }
+
+    return { label: "OK", variant: "secondary" as const };
+  } catch (error) {
+    console.error("Error calculating batch status:", error);
+    return { label: "Erro", variant: "secondary" as const };
   }
-
-  if (daysToExpiry <= urgentDays) {
-    return {
-      label: `Urgente usar (${daysToExpiry} dias)`,
-      variant: "destructive" as const,
-    };
-  }
-
-  if (daysToExpiry <= warningDays) {
-    return {
-      label: `A expirar em breve (${daysToExpiry} dias)`,
-      variant: "default" as const,
-    };
-  }
-
-  return { label: "OK", variant: "secondary" as const };
 }
 
 /**
@@ -72,14 +86,23 @@ export function getBatchStatus(
 export function groupBatchesByCategory(
   batches: BatchWithRelations[]
 ): Record<string, BatchWithRelations[]> {
-  return batches.reduce((acc, batch) => {
-    const categoryName = batch.category?.name ?? "Sem Categoria";
-    if (!acc[categoryName]) {
-      acc[categoryName] = [];
+  try {
+    if (!Array.isArray(batches)) {
+      return {};
     }
-    acc[categoryName].push(batch);
-    return acc;
-  }, {} as Record<string, BatchWithRelations[]>);
+    return batches.reduce((acc, batch) => {
+      if (!batch) return acc;
+      const categoryName = batch.category?.name ?? "Sem Categoria";
+      if (!acc[categoryName]) {
+        acc[categoryName] = [];
+      }
+      acc[categoryName].push(batch);
+      return acc;
+    }, {} as Record<string, BatchWithRelations[]>);
+  } catch (error) {
+    console.error("Error grouping batches by category:", error);
+    return {};
+  }
 }
 
 /**
@@ -92,57 +115,78 @@ export function groupBatchesByCategory(
  * @returns Record com nome do produto como chave e dados agregados como valor
  */
 export function aggregateBatchesByProduct(batches: BatchWithRelations[]) {
-  const aggregated: Record<
-    string,
-    {
-      batches: BatchWithRelations[];
-      totalQuantity: number;
-      locations: Array<{ name: string; quantity: number; unit: string }>;
-      nearestExpiry: Date;
-      unit: string;
-    }
-  > = {};
-
-  for (const batch of batches) {
-    const productName = batch.name;
-
-    if (!aggregated[productName]) {
-      aggregated[productName] = {
-        batches: [],
-        totalQuantity: 0,
-        locations: [],
-        nearestExpiry: new Date(batch.expiryDate),
-        unit: batch.unit,
-      };
+  try {
+    if (!Array.isArray(batches)) {
+      return {};
     }
 
-    aggregated[productName].batches.push(batch);
-    aggregated[productName].totalQuantity += batch.quantity;
+    const aggregated: Record<
+      string,
+      {
+        batches: BatchWithRelations[];
+        totalQuantity: number;
+        locations: Array<{ name: string; quantity: number; unit: string }>;
+        nearestExpiry: Date;
+        unit: string;
+      }
+    > = {};
 
-    // Atualizar data de validade mais próxima
-    const batchExpiry = new Date(batch.expiryDate);
-    if (batchExpiry < aggregated[productName].nearestExpiry) {
-      aggregated[productName].nearestExpiry = batchExpiry;
-    }
+    for (const batch of batches) {
+      if (!batch || !batch.name) continue;
 
-    // Adicionar localização (agrupar por localização se houver)
-    if (batch.location) {
-      const existingLocation = aggregated[productName].locations.find(
-        (loc) => loc.name === batch.location!.name
-      );
+      const productName = batch.name;
 
-      if (existingLocation) {
-        existingLocation.quantity += batch.quantity;
-      } else {
-        aggregated[productName].locations.push({
-          name: batch.location.name,
-          quantity: batch.quantity,
-          unit: batch.unit,
-        });
+      // Converter expiryDate para Date se necessário
+      const expiryDate =
+        typeof batch.expiryDate === "string"
+          ? new Date(batch.expiryDate)
+          : batch.expiryDate;
+
+      if (!aggregated[productName]) {
+        aggregated[productName] = {
+          batches: [],
+          totalQuantity: 0,
+          locations: [],
+          nearestExpiry: expiryDate instanceof Date ? expiryDate : new Date(expiryDate),
+          unit: batch.unit || "un",
+        };
+      }
+
+      aggregated[productName].batches.push(batch);
+      aggregated[productName].totalQuantity += batch.quantity || 0;
+
+      // Atualizar data de validade mais próxima
+      const batchExpiry =
+        expiryDate instanceof Date ? expiryDate : new Date(expiryDate);
+      if (
+        !isNaN(batchExpiry.getTime()) &&
+        batchExpiry < aggregated[productName].nearestExpiry
+      ) {
+        aggregated[productName].nearestExpiry = batchExpiry;
+      }
+
+      // Adicionar localização (agrupar por localização se houver)
+      if (batch.location && batch.location.name) {
+        const existingLocation = aggregated[productName].locations.find(
+          (loc) => loc.name === batch.location!.name
+        );
+
+        if (existingLocation) {
+          existingLocation.quantity += batch.quantity || 0;
+        } else {
+          aggregated[productName].locations.push({
+            name: batch.location.name,
+            quantity: batch.quantity || 0,
+            unit: batch.unit || "un",
+          });
+        }
       }
     }
-  }
 
-  return aggregated;
+    return aggregated;
+  } catch (error) {
+    console.error("Error aggregating batches by product:", error);
+    return {};
+  }
 }
 

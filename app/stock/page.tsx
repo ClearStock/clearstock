@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { getRestaurant } from "@/lib/data-access";
 import { PageHeader } from "@/components/page-header";
-import { StockView } from "@/components/stock-view";
+import { StockViewWrapper } from "@/components/stock-view-wrapper";
 import { Package } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -48,7 +48,7 @@ export default async function StockPage() {
           </CardContent>
         </Card>
       ) : (
-        <StockView
+        <StockViewWrapper
           batches={JSON.parse(JSON.stringify(batches))}
           restaurant={JSON.parse(JSON.stringify(restaurant))}
           categories={JSON.parse(JSON.stringify(restaurant.categories))}
