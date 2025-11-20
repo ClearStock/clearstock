@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createProductBatch } from "@/app/actions";
@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Camera } from "lucide-react";
+import { createWorker } from "tesseract.js";
+import { extractExpiryDate, formatDateForInput, formatDateForDisplay } from "@/lib/ocr-utils";
 
 import type { Category, Location } from "@prisma/client";
 
@@ -33,6 +35,8 @@ export default function NewEntryForm({
 }: NewEntryFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
     quantity: "",
@@ -103,6 +107,90 @@ export default function NewEntryForm({
       ...prev,
       [name]: value,
     }));
+  };
+
+  /**
+   * Handle OCR scanning of expiry date from image
+   */
+  const handleScanExpiryDate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Ficheiro inválido", {
+        description: "Por favor, selecione uma imagem.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    setIsScanning(true);
+
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading("A ler validade...", {
+        description: "A processar a imagem. Por favor, aguarde.",
+      });
+
+      // Initialize Tesseract worker
+      const worker = await createWorker("por"); // Portuguese language
+
+      // Perform OCR
+      const { data: { text } } = await worker.recognize(file);
+
+      // Clean up worker
+      await worker.terminate();
+
+      // Extract date from OCR text
+      const extractedDate = extractExpiryDate(text);
+
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+
+      if (extractedDate) {
+        // Format date for input (YYYY-MM-DD)
+        const dateString = formatDateForInput(extractedDate);
+        
+        // Update form data
+        setFormData((prev) => ({
+          ...prev,
+          expiryDate: dateString,
+        }));
+
+        // Show success toast
+        toast.success("Validade detectada", {
+          description: `Data encontrada: ${formatDateForDisplay(extractedDate)}`,
+          duration: 4000,
+        });
+      } else {
+        // Show error toast
+        toast.error("Não foi possível ler a validade", {
+          description: "Não foi encontrada nenhuma data válida na imagem. Por favor, preencha manualmente.",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("OCR error:", error);
+      toast.error("Erro ao processar imagem", {
+        description: "Ocorreu um erro ao processar a imagem. Por favor, tente novamente ou preencha manualmente.",
+        duration: 5000,
+      });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  /**
+   * Trigger file input click
+   */
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -181,16 +269,48 @@ export default function NewEntryForm({
               <Label htmlFor="expiryDate" className="text-sm md:text-base font-medium">
                 Data de validade
               </Label>
-              <Input
-                id="expiryDate"
-                name="expiryDate"
-                type="date"
-                value={formData.expiryDate}
-                onChange={handleInputChange}
-                className="h-11 md:h-10 text-base"
-                required
-                disabled={isPending}
-              />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  id="expiryDate"
+                  name="expiryDate"
+                  type="date"
+                  value={formData.expiryDate}
+                  onChange={handleInputChange}
+                  className="flex-1 h-11 md:h-10 text-base"
+                  required
+                  disabled={isPending || isScanning}
+                />
+                {/* Hidden file input for image capture/selection */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleScanExpiryDate}
+                  className="hidden"
+                  disabled={isPending || isScanning}
+                />
+                {/* Scan button - mobile-first: full width on mobile, auto on desktop */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={triggerFileInput}
+                  disabled={isPending || isScanning}
+                  className="w-full sm:w-auto border border-gray-300 text-gray-700 rounded-lg px-3 py-1 h-11 md:h-10 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isScanning ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      A ler...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="mr-2 h-4 w-4" />
+                      Ler validade
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {/* Category - Full width */}
