@@ -137,8 +137,8 @@ export function StockViewWrapper({
   return (
     <StockViewSimple
       {...convertedData}
-      categories={categories}
-      locations={locations}
+      categories={Array.isArray(categories) ? categories : []}
+      locations={Array.isArray(locations) ? locations : []}
     />
   );
 }
