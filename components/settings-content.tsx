@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { updateSettings, createCategory, createLocation, deleteCategory, deleteLocation, updateCategoryAlert } from "@/app/actions";
+import { updateSettings, createCategory, createLocation, updateCategoryAlertById, deleteCategoryById, deleteLocationById } from "@/app/actions";
 import { Trash2 } from "lucide-react";
 import type { Restaurant, Category, Location } from "@prisma/client";
 
@@ -92,7 +92,8 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
                         <div className="flex gap-4 text-sm text-muted-foreground">
                           <div>
                             <label className="text-xs">Aviso urgente (dias):</label>
-                            <form action={(formData) => updateCategoryAlert(category.id, formData)} className="inline-flex items-center gap-2 ml-2">
+                            <form action={updateCategoryAlertById} className="inline-flex items-center gap-2 ml-2">
+                              <input type="hidden" name="categoryId" value={category.id} />
                               <Input
                                 name="alertDays"
                                 type="number"
@@ -105,7 +106,8 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
                           </div>
                           <div>
                             <label className="text-xs">Aviso (dias):</label>
-                            <form action={(formData) => updateCategoryAlert(category.id, formData)} className="inline-flex items-center gap-2 ml-2">
+                            <form action={updateCategoryAlertById} className="inline-flex items-center gap-2 ml-2">
+                              <input type="hidden" name="categoryId" value={category.id} />
                               <Input
                                 name="warningDays"
                                 type="number"
@@ -118,7 +120,8 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
                           </div>
                         </div>
                       </div>
-                      <form action={deleteCategory.bind(null, category.id)}>
+                      <form action={deleteCategoryById}>
+                        <input type="hidden" name="categoryId" value={category.id} />
                         <Button
                           type="submit"
                           variant="ghost"
@@ -165,7 +168,8 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
                       className="flex items-center justify-between rounded-lg border p-3"
                     >
                       <p className="font-medium">{location.name}</p>
-                      <form action={deleteLocation.bind(null, location.id)}>
+                      <form action={deleteLocationById}>
+                        <input type="hidden" name="locationId" value={location.id} />
                         <Button
                           type="submit"
                           variant="ghost"

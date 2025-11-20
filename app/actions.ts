@@ -109,6 +109,41 @@ export async function updateCategoryAlert(categoryId: string, formData: FormData
   revalidatePath("/settings");
 }
 
+/**
+ * Server action wrappers to avoid passing functions to client components
+ * These use hidden form fields to pass IDs
+ */
+
+export async function updateCategoryAlertById(formData: FormData) {
+  "use server";
+  const categoryId = formData.get("categoryId")?.toString();
+  const warningDays = formData.get("warningDays")?.toString();
+  const alertDays = formData.get("alertDays")?.toString();
+  
+  if (!categoryId) throw new Error("Category ID required");
+  
+  // Create new FormData with the values
+  const newFormData = new FormData();
+  if (warningDays) newFormData.set("warningDays", warningDays);
+  if (alertDays) newFormData.set("alertDays", alertDays);
+  
+  return updateCategoryAlert(categoryId, newFormData);
+}
+
+export async function deleteCategoryById(formData: FormData) {
+  "use server";
+  const categoryId = formData.get("categoryId")?.toString();
+  if (!categoryId) throw new Error("Category ID required");
+  return deleteCategory(categoryId);
+}
+
+export async function deleteLocationById(formData: FormData) {
+  "use server";
+  const locationId = formData.get("locationId")?.toString();
+  if (!locationId) throw new Error("Location ID required");
+  return deleteLocation(locationId);
+}
+
 export async function deleteCategory(categoryId: string) {
   const tenantId = await getRestaurantIdFromCookie();
   if (!tenantId) throw new Error("Não autenticado");
