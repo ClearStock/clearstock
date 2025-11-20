@@ -1,0 +1,28 @@
+# VARIÁVEIS DE AMBIENTE PARA O VERCEL
+# Copia estas strings EXATAS para o Vercel (Settings → Environment Variables)
+
+# ============================================
+# DATABASE_URL (Session Pooler)
+# ============================================
+postgresql://postgres.esoklnlizihqhddbnxwn:%219%2AJCHLkH9P%24%2A7h@aws-1-eu-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+
+# ============================================
+# DIRECT_URL (Direct Connection)
+# ============================================
+postgresql://postgres:%219%2AJCHLkH9P%24%2A7h@db.esoklnlizihqhddbnxwn.supabase.co:5432/postgres
+
+# ============================================
+# INSTRUÇÕES:
+# ============================================
+# 1. Vai ao Vercel Dashboard → projeto speakwise4
+# 2. Settings → Environment Variables
+# 3. Remove as variáveis antigas DATABASE_URL e DIRECT_URL (se existirem)
+# 4. Adiciona uma nova variável:
+#    - Name: DATABASE_URL
+#    - Value: postgresql://postgres.esoklnlizihqhddbnxwn:%219%2AJCHLkH9P%24%2A7h@aws-1-eu-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+# 5. Adiciona outra variável:
+#    - Name: DIRECT_URL
+#    - Value: postgresql://postgres:%219%2AJCHLkH9P%24%2A7h@db.esoklnlizihqhddbnxwn.supabase.co:5432/postgres
+# 6. Depois de adicionar, vai a Deployments e faz Redeploy do último deployment
+#    OU faz um novo push para o GitHub (o Vercel faz deploy automático)
+

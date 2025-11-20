@@ -17,8 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { MapPin, Package, Search, Edit, Trash2 } from "lucide-react";
-// EditBatchDialog temporariamente desabilitado para debug
-// import { EditBatchDialog } from "./edit-batch-dialog";
+import { EditBatchDialog } from "./edit-batch-dialog";
 import { getBatchStatus, groupBatchesByCategory } from "@/lib/stock-utils";
 import type { Category, Location, Restaurant } from "@prisma/client";
 import type { BatchWithRelations } from "@/lib/stock-utils";
@@ -41,11 +40,10 @@ export function StockViewSimple({
 }: StockViewSimpleProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  // Temporariamente desabilitado
-  // const [editDialogOpen, setEditDialogOpen] = useState(false);
-  // const [editingBatch, setEditingBatch] = useState<BatchWithRelations | null>(
-  //   null
-  // );
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<BatchWithRelations | null>(
+    null
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingBatch, setDeletingBatch] = useState<BatchWithRelations | null>(
     null
@@ -53,8 +51,12 @@ export function StockViewSimple({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = (batch: BatchWithRelations) => {
-    // Temporariamente desabilitado - será reativado depois
-    alert("Edição temporariamente desabilitada. A funcionalidade será restaurada em breve.");
+    if (!batch || !batch.id) {
+      console.warn("Cannot edit batch: invalid batch or missing ID");
+      return;
+    }
+    setEditingBatch(batch);
+    setEditDialogOpen(true);
   };
 
   const handleDelete = (batch: BatchWithRelations) => {
@@ -230,8 +232,8 @@ export function StockViewSimple({
         </div>
       )}
 
-      {/* Dialog de edição temporariamente desabilitado */}
-      {/* {editDialogOpen && editingBatch && editingBatch.id && categories && locations && (
+      {/* Dialog de edição */}
+      {editDialogOpen && editingBatch && editingBatch.id && categories && locations && (
         <EditBatchDialog
           batch={editingBatch}
           categories={categories}
@@ -244,7 +246,7 @@ export function StockViewSimple({
             }
           }}
         />
-      )} */}
+      )}
 
       {/* Dialog de confirmação de eliminação */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
