@@ -132,8 +132,47 @@ export async function updateCategoryAlert(categoryId: string, formData: FormData
      },
    });
 
-   revalidatePath("/entries/new");
-   revalidatePath("/stock");
- }
+  revalidatePath("/entries/new");
+  revalidatePath("/stock");
+}
+
+export async function updateProductBatch(batchId: string, formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  const quantityRaw = formData.get("quantity");
+  const unitRaw = String(formData.get("unit") ?? "").trim();
+  const expiryDateRaw = formData.get("expiryDate");
+  const categoryIdRaw = formData.get("categoryId");
+  const locationIdRaw = formData.get("locationId");
+
+  if (!name || !quantityRaw || !expiryDateRaw) {
+    return;
+  }
+
+  const quantity = Number(quantityRaw);
+  const unit = unitRaw || "un";
+  const expiryDate = new Date(String(expiryDateRaw));
+
+  await db.productBatch.update({
+    where: { id: batchId },
+    data: {
+      name,
+      quantity: isNaN(quantity) ? 1 : quantity,
+      unit,
+      expiryDate,
+      categoryId: categoryIdRaw ? String(categoryIdRaw) : null,
+      locationId: locationIdRaw ? String(locationIdRaw) : null,
+    },
+  });
+
+  revalidatePath("/stock");
+}
+
+export async function deleteProductBatch(batchId: string) {
+  await db.productBatch.delete({
+    where: { id: batchId },
+  });
+
+  revalidatePath("/stock");
+}
 
 
