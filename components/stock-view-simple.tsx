@@ -3,8 +3,9 @@
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { MapPin, Package } from "lucide-react";
+import { MapPin, Package, Search } from "lucide-react";
 import { getBatchStatus, groupBatchesByCategory } from "@/lib/stock-utils";
 import type { Category, Location, Restaurant } from "@prisma/client";
 import type { BatchWithRelations } from "@/lib/stock-utils";
@@ -15,13 +16,14 @@ interface StockViewSimpleProps {
 }
 
 /**
- * Versão simplificada do StockView para debug
- * Remove todas as features complexas para isolar o problema
+ * Versão simplificada do StockView com Search bar
  */
 export function StockViewSimple({
   batches,
   restaurant,
 }: StockViewSimpleProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Validação defensiva
   if (!batches || !Array.isArray(batches)) {
     return (
@@ -33,10 +35,19 @@ export function StockViewSimple({
     );
   }
 
+  // Filtrar batches baseado na pesquisa
+  const filteredBatches = useMemo(() => {
+    if (!searchQuery.trim()) return batches;
+    const query = searchQuery.toLowerCase();
+    return batches.filter((batch) =>
+      batch.name?.toLowerCase().includes(query)
+    );
+  }, [batches, searchQuery]);
+
   // Agrupar por categoria
   const batchesByCategory = useMemo(
-    () => groupBatchesByCategory(batches),
-    [batches]
+    () => groupBatchesByCategory(filteredBatches),
+    [filteredBatches]
   );
 
   // Ordenar categorias
@@ -59,15 +70,30 @@ export function StockViewSimple({
 
   return (
     <div className="space-y-6">
-      {batches.length === 0 ? (
+      {/* Search bar */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Pesquisar produto..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {filteredBatches.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Package className="mx-auto h-12 w-12 mb-4 opacity-50" />
             <p className="text-lg font-medium mb-2">
-              Ainda não existem produtos em stock
+              {searchQuery
+                ? "Nenhum produto encontrado"
+                : "Ainda não existem produtos em stock"}
             </p>
             <p className="text-sm">
-              Adicione uma entrada em &quot;Nova Entrada&quot;.
+              {searchQuery
+                ? "Tente pesquisar por outro termo."
+                : 'Adicione uma entrada em "Nova Entrada".'}
             </p>
           </CardContent>
         </Card>
