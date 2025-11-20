@@ -134,6 +134,12 @@ export function StockViewWrapper({
     );
   }
 
-  return <StockViewSimple {...convertedData} />;
+  return (
+    <StockViewSimple
+      {...convertedData}
+      categories={categories}
+      locations={locations}
+    />
+  );
 }
 
