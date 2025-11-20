@@ -1,60 +1,91 @@
- "use server";
+"use server";
 
- import { revalidatePath } from "next/cache";
- import { db } from "@/lib/db";
-import { getRestaurant, getUser } from "@/lib/data-access";
+import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { db } from "@/lib/db";
+import { getRestaurantByTenantId, getUser } from "@/lib/data-access";
+import type { RestaurantId } from "@/lib/auth";
 
- export async function updateSettings(formData: FormData) {
-   const restaurant = await getRestaurant();
+/**
+ * Helper to get restaurantId from cookies in server actions
+ */
+async function getRestaurantIdFromCookie(): Promise<RestaurantId | null> {
+  const cookieStore = await cookies();
+  const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
+  
+  if (restaurantId && ["A", "B", "C"].includes(restaurantId)) {
+    return restaurantId as RestaurantId;
+  }
+  
+  return null;
+}
 
-   const alertDaysRaw = formData.get("alertDays");
-   const alertDays = Number(alertDaysRaw ?? 3);
+export async function updateSettings(formData: FormData) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
 
-   await db.restaurant.update({
-     where: { id: restaurant.id },
-     data: {
-       alertDaysBeforeExpiry: isNaN(alertDays) || alertDays <= 0 ? 3 : alertDays,
-     },
-   });
+  const restaurant = await getRestaurantByTenantId(tenantId);
 
-   revalidatePath("/settings");
- }
+  const alertDaysRaw = formData.get("alertDays");
+  const alertDays = Number(alertDaysRaw ?? 3);
 
- export async function createCategory(formData: FormData) {
-   const restaurant = await getRestaurant();
-   const name = String(formData.get("name") ?? "").trim();
+  await db.restaurant.update({
+    where: { id: restaurant.id },
+    data: {
+      alertDaysBeforeExpiry: isNaN(alertDays) || alertDays <= 0 ? 3 : alertDays,
+    },
+  });
 
-   if (!name) return;
+  revalidatePath("/definicoes");
+  revalidatePath("/settings");
+}
 
-   await db.category.create({
-     data: {
-       name,
-       restaurantId: restaurant.id,
-     },
-   });
+export async function createCategory(formData: FormData) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
 
-   revalidatePath("/settings");
- }
+  const restaurant = await getRestaurantByTenantId(tenantId);
+  const name = String(formData.get("name") ?? "").trim();
 
- export async function createLocation(formData: FormData) {
-   const restaurant = await getRestaurant();
-   const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
 
-   if (!name) return;
+  await db.category.create({
+    data: {
+      name,
+      restaurantId: restaurant.id,
+    },
+  });
 
-   await db.location.create({
-     data: {
-       name,
-       restaurantId: restaurant.id,
-     },
-   });
+  revalidatePath("/definicoes");
+  revalidatePath("/settings");
+}
 
-   revalidatePath("/settings");
- }
+export async function createLocation(formData: FormData) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
+
+  const restaurant = await getRestaurantByTenantId(tenantId);
+  const name = String(formData.get("name") ?? "").trim();
+
+  if (!name) return;
+
+  await db.location.create({
+    data: {
+      name,
+      restaurantId: restaurant.id,
+    },
+  });
+
+  revalidatePath("/definicoes");
+  revalidatePath("/settings");
+}
 
 export async function updateCategoryAlert(categoryId: string, formData: FormData) {
-  const warningRaw = formData.get("warningAlertDays");
-  const urgentRaw = formData.get("urgentAlertDays");
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
+
+  const warningRaw = formData.get("warningDays");
+  const urgentRaw = formData.get("alertDays");
 
   const warning =
     warningRaw && !isNaN(Number(warningRaw)) && Number(warningRaw) > 0
@@ -74,35 +105,40 @@ export async function updateCategoryAlert(categoryId: string, formData: FormData
     },
   });
 
+  revalidatePath("/definicoes");
   revalidatePath("/settings");
 }
 
- export async function deleteCategory(categoryId: string) {
-   await db.category.delete({
-     where: { id: categoryId },
-   });
+export async function deleteCategory(categoryId: string) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
 
-   revalidatePath("/settings");
- }
+  await db.category.delete({
+    where: { id: categoryId },
+  });
 
- export async function deleteLocation(locationId: string) {
-   await db.location.delete({
-     where: { id: locationId },
-   });
+  revalidatePath("/definicoes");
+  revalidatePath("/settings");
+}
 
-   revalidatePath("/settings");
- }
+export async function deleteLocation(locationId: string) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
+
+  await db.location.delete({
+    where: { id: locationId },
+  });
+
+  revalidatePath("/definicoes");
+  revalidatePath("/settings");
+}
 
  export async function createProductBatch(formData: FormData) {
-   const restaurantId = String(formData.get("restaurantId") ?? "");
-   if (!restaurantId) return;
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
 
-   const [restaurant, user] = await Promise.all([
-     db.restaurant.findUnique({ where: { id: restaurantId } }),
-     getUser(restaurantId),
-   ]);
-
-   if (!restaurant) return;
+  const restaurant = await getRestaurantByTenantId(tenantId);
+  const user = await getUser(restaurant.id);
 
    const name = String(formData.get("name") ?? "").trim();
    const quantityRaw = formData.get("quantity");
@@ -132,12 +168,16 @@ export async function updateCategoryAlert(categoryId: string, formData: FormData
      },
    });
 
+  revalidatePath("/nova-entrada");
   revalidatePath("/entries/new");
   revalidatePath("/stock");
 }
 
 export async function updateProductBatch(batchId: string, formData: FormData) {
   try {
+    const tenantId = await getRestaurantIdFromCookie();
+    if (!tenantId) throw new Error("Não autenticado");
+
     if (!batchId) {
       throw new Error("ID do batch não fornecido");
     }
@@ -192,6 +232,9 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
 }
 
 export async function deleteProductBatch(batchId: string) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
+
   await db.productBatch.delete({
     where: { id: batchId },
   });

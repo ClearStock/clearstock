@@ -18,16 +18,16 @@ export function MainNav() {
 
   const routes = [
     {
-      href: "/dashboard",
+      href: "/hoje",
       label: "Hoje",
       icon: LayoutDashboard,
-      active: pathname === "/dashboard",
+      active: pathname === "/hoje" || pathname === "/dashboard",
     },
     {
-      href: "/entries/new",
+      href: "/nova-entrada",
       label: "Nova Entrada",
       icon: PlusCircle,
-      active: pathname === "/entries/new",
+      active: pathname === "/nova-entrada" || pathname === "/entries/new",
     },
     {
       href: "/stock",
@@ -36,10 +36,10 @@ export function MainNav() {
       active: pathname === "/stock",
     },
     {
-      href: "/settings",
+      href: "/definicoes",
       label: "Definições",
       icon: Settings,
-      active: pathname === "/settings",
+      active: pathname === "/definicoes" || pathname === "/settings",
     },
   ]
 

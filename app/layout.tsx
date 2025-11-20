@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { MainNav } from "@/components/main-nav";
+import { ConditionalNav } from "@/components/conditional-nav";
+import { SyncAuthCookie } from "@/components/sync-auth-cookie";
 import { cn } from "@/lib/utils";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -19,8 +20,9 @@ export default function RootLayout({
   return (
     <html lang="pt">
       <body className={cn(inter.className, "min-h-screen bg-background font-sans antialiased")}>
+        <SyncAuthCookie />
         <div className="relative flex min-h-screen flex-col">
-          <MainNav />
+          <ConditionalNav />
           <main className="flex-1 container py-6">
             {children}
           </main>
