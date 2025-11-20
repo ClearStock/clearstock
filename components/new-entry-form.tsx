@@ -157,15 +157,22 @@ export default function NewEntryForm({
                   required
                   disabled={isPending}
                 />
-                <Input
+                <Select
                   name="unit"
                   value={formData.unit}
-                  onChange={handleInputChange}
-                  className="w-full sm:w-24 h-11 md:h-10 text-base"
-                  placeholder="un"
-                  aria-label="Unidade"
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, unit: value }))
+                  }
                   disabled={isPending}
-                />
+                >
+                  <SelectTrigger className="w-full sm:w-24 h-11 md:h-10 text-base" aria-label="Unidade">
+                    <SelectValue placeholder="un" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="un">un</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

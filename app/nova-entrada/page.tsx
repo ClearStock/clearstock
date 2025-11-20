@@ -15,12 +15,12 @@ export default async function NovaEntradaPage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C"].includes(restaurantId)) {
+  if (!restaurantId || !["A", "B", "C", "D"].includes(restaurantId)) {
     redirect("/acesso");
   }
 
   try {
-    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C");
+    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D");
 
     return (
       <AuthGuard>

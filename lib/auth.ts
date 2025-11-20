@@ -3,7 +3,7 @@
  * Restaurant tenant system using localStorage
  */
 
-export type RestaurantId = "A" | "B" | "C";
+export type RestaurantId = "A" | "B" | "C" | "D";
 
 const STORAGE_KEYS = {
   authenticated: "clearskok_authenticated",
@@ -17,6 +17,7 @@ export const PIN_TO_RESTAURANT: Record<string, RestaurantId> = {
   "1111": "A",
   "2222": "B",
   "3333": "C",
+  "4921": "D",
 };
 
 /**
@@ -26,6 +27,7 @@ export const RESTAURANT_NAMES: Record<RestaurantId, string> = {
   A: "Restaurante A",
   B: "Restaurante B",
   C: "Restaurante C",
+  D: "Restaurante D",
 };
 
 /**
@@ -39,7 +41,7 @@ export function isAuthenticated(): boolean {
   
   return authenticated === "true" && 
          !!restaurantId && 
-         ["A", "B", "C"].includes(restaurantId);
+         ["A", "B", "C", "D"].includes(restaurantId);
 }
 
 /**
@@ -50,7 +52,7 @@ export function getRestaurantId(): RestaurantId | null {
   
   const restaurantId = localStorage.getItem(STORAGE_KEYS.restaurantId);
   
-  if (restaurantId && ["A", "B", "C"].includes(restaurantId)) {
+  if (restaurantId && ["A", "B", "C", "D"].includes(restaurantId)) {
     return restaurantId as RestaurantId;
   }
   
