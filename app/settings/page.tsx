@@ -10,9 +10,10 @@ import { Trash2 } from "lucide-react"
 export const dynamic = "force-dynamic"
 
 export default async function SettingsPage() {
-  const restaurant = await getRestaurant()
+  try {
+    const restaurant = await getRestaurant()
 
-  return (
+    return (
     <div className="space-y-6">
       <PageHeader 
         title="Definições" 
@@ -175,4 +176,25 @@ export default async function SettingsPage() {
       </Tabs>
     </div>
   )
+  } catch (error) {
+    console.error("Error loading settings page:", error);
+    return (
+      <div className="space-y-6">
+        <PageHeader 
+          title="Definições" 
+          description="Gerir configurações do restaurante"
+        />
+        <Card>
+          <CardContent className="py-12 text-center text-destructive">
+            <p className="text-lg font-medium mb-2">
+              Erro ao carregar definições
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Por favor, recarregue a página ou contacte o suporte.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 }

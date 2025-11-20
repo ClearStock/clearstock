@@ -10,17 +10,18 @@ import { Button } from "@/components/ui/button";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const restaurant = await getRestaurant();
+  try {
+    const restaurant = await getRestaurant();
 
-  const batches = await db.productBatch.findMany({
-    where: {
-      restaurantId: restaurant.id,
-      status: "ACTIVE",
-    },
-    include: {
-      category: true,
-    },
-  });
+    const batches = await db.productBatch.findMany({
+      where: {
+        restaurantId: restaurant.id,
+        status: "ACTIVE",
+      },
+      include: {
+        category: true,
+      },
+    });
 
   const today = new Date();
 
@@ -141,5 +142,27 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+  } catch (error) {
+    console.error("Error loading dashboard:", error);
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Visão Geral"
+          description="Resumo do estado do stock hoje."
+          className="pb-0"
+        />
+        <Card>
+          <CardContent className="py-12 text-center text-destructive">
+            <p className="text-lg font-medium mb-2">
+              Erro ao carregar dashboard
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Por favor, recarregue a página ou contacte o suporte.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 }
 

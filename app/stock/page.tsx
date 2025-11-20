@@ -13,20 +13,21 @@ export const dynamic = "force-dynamic";
  * que gere toda a lógica de UI, estado e interações.
  */
 export default async function StockPage() {
-  const restaurant = await getRestaurant();
+  try {
+    const restaurant = await getRestaurant();
 
-  const batches = await db.productBatch.findMany({
-    where: {
-      restaurantId: restaurant.id,
-    },
-    include: {
-      category: true,
-      location: true,
-    },
-    orderBy: {
-      expiryDate: "asc",
-    },
-  });
+    const batches = await db.productBatch.findMany({
+      where: {
+        restaurantId: restaurant.id,
+      },
+      include: {
+        category: true,
+        location: true,
+      },
+      orderBy: {
+        expiryDate: "asc",
+      },
+    });
 
   return (
     <div className="space-y-6">
@@ -57,4 +58,26 @@ export default async function StockPage() {
       )}
     </div>
   );
+  } catch (error) {
+    console.error("Error loading stock page:", error);
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Stock"
+          description="Lista de produtos em stock organizados por categoria ou por produto."
+        />
+        <Card>
+          <CardContent className="py-12 text-center text-destructive">
+            <Package className="mx-auto h-12 w-12 mb-4 opacity-50" />
+            <p className="text-lg font-medium mb-2">
+              Erro ao carregar stock
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Por favor, recarregue a página ou contacte o suporte.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 }
