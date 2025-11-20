@@ -14,13 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Category, Location } from "@prisma/client";
 import type { BatchWithRelations } from "@/lib/stock-utils";
 
@@ -153,55 +146,41 @@ export function EditBatchDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Select
+              <Label htmlFor="edit-categoryId">Categoria</Label>
+              <select
+                id="edit-categoryId"
                 name="categoryId"
                 defaultValue={batch.categoryId ? String(batch.categoryId) : ""}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Sem categoria</SelectItem>
-                  {categories && categories.length > 0 ? (
-                    categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
+                <option value="">Sem categoria</option>
+                {categories && categories.length > 0
+                  ? categories.map((category) => (
+                      <option key={category.id} value={category.id}>
                         {category.name}
-                      </SelectItem>
+                      </option>
                     ))
-                  ) : (
-                    <SelectItem value="" disabled>
-                      Nenhuma categoria disponível
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                  : null}
+              </select>
             </div>
 
             <div className="space-y-2">
-              <Label>Localização</Label>
-              <Select
+              <Label htmlFor="edit-locationId">Localização</Label>
+              <select
+                id="edit-locationId"
                 name="locationId"
                 defaultValue={batch.locationId ? String(batch.locationId) : ""}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma localização" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Sem localização</SelectItem>
-                  {locations && locations.length > 0 ? (
-                    locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
+                <option value="">Sem localização</option>
+                {locations && locations.length > 0
+                  ? locations.map((location) => (
+                      <option key={location.id} value={location.id}>
                         {location.name}
-                      </SelectItem>
+                      </option>
                     ))
-                  ) : (
-                    <SelectItem value="" disabled>
-                      Nenhuma localização disponível
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                  : null}
+              </select>
             </div>
           </div>
 
