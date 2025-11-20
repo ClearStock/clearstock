@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Controlo de Validades",
-  description: "Aplicação para gestão de validades em restauração",
+  title: "Clearstok",
+  description: "Clearstok - Aplicação para gestão de validades em restauração",
 };
 
 export default function RootLayout({

@@ -49,7 +49,7 @@ export function MainNav() {
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <span className="hidden font-bold sm:inline-block">
-              ValidadeApp
+              Clearstok
             </span>
           </Link>
           <nav className="flex items-center space-x-6 text-sm font-medium">
@@ -85,7 +85,7 @@ export function MainNav() {
               className="flex items-center"
               onClick={() => setOpen(false)}
             >
-              <span className="font-bold">ValidadeApp</span>
+              <span className="font-bold">Clearstok</span>
             </Link>
             <div className="my-4 pb-10 pl-6">
               <div className="flex flex-col space-y-3">

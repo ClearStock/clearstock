@@ -10,7 +10,7 @@ export default function Home() {
           <ChefHat className="h-12 w-12 text-primary" />
         </div>
         <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">
-          ValidadeApp
+          Clearstok
         </h1>
         <p className="max-w-[600px] text-muted-foreground md:text-xl">
           Gestão inteligente de validades e stock para o seu restaurante.
