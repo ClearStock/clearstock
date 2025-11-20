@@ -5,6 +5,7 @@ import { ConditionalNav } from "@/components/conditional-nav";
 import { SyncAuthCookie } from "@/components/sync-auth-cookie";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
 import { cn } from "@/lib/utils";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -34,6 +35,8 @@ export default function RootLayout({
         </div>
         {/* Toast notifications */}
         <Toaster position="top-center" richColors />
+        {/* Vercel Analytics */}
+        <Analytics />
       </body>
     </html>
   );
