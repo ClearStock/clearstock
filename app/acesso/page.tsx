@@ -24,7 +24,9 @@ export default function AccessPage() {
     setIsSubmitting(true);
 
     // Validate PIN
+    console.log("Validating PIN:", pin, "Length:", pin.length);
     const restaurantId = validatePIN(pin);
+    console.log("Validation result:", restaurantId);
 
     if (!restaurantId) {
       setError("PIN inválido. Tente novamente.");

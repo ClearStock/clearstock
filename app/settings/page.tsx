@@ -15,12 +15,12 @@ export default async function SettingsPage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C", "D"].includes(restaurantId)) {
+  if (!restaurantId || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
     redirect("/acesso");
   }
 
   try {
-    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D");
+    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J");
 
     return (
       <AuthGuard>

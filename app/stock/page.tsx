@@ -20,12 +20,12 @@ export default async function StockPage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C", "D"].includes(restaurantId)) {
+  if (!restaurantId || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
     redirect("/acesso");
   }
 
   try {
-    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D");
+    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J");
 
     // Optimize query: select only needed fields to reduce payload size
     const batches = await db.productBatch.findMany({

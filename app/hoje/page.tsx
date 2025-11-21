@@ -14,13 +14,13 @@ export default async function HojePage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C", "D"].includes(restaurantId)) {
+  if (!restaurantId || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
     redirect("/acesso");
   }
 
   return (
     <AuthGuard>
-      <DashboardContent restaurantId={restaurantId as "A" | "B" | "C" | "D"} />
+      <DashboardContent restaurantId={restaurantId as "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J"} />
     </AuthGuard>
   );
 }

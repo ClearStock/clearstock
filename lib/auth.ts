@@ -3,7 +3,7 @@
  * Restaurant tenant system using localStorage
  */
 
-export type RestaurantId = "A" | "B" | "C" | "D";
+export type RestaurantId = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J";
 
 const STORAGE_KEYS = {
   authenticated: "clearskok_authenticated",
@@ -18,6 +18,12 @@ export const PIN_TO_RESTAURANT: Record<string, RestaurantId> = {
   "2222": "B",
   "3333": "C",
   "4921": "D",
+  "5421": "E",
+  "6531": "F",
+  "7641": "G",
+  "8751": "H",
+  "9861": "I",
+  "1357": "J",
 };
 
 /**
@@ -28,6 +34,12 @@ export const RESTAURANT_NAMES: Record<RestaurantId, string> = {
   B: "Restaurante B",
   C: "Restaurante C",
   D: "Restaurante D",
+  E: "Restaurante E",
+  F: "Restaurante F",
+  G: "Restaurante G",
+  H: "Restaurante H",
+  I: "Restaurante I",
+  J: "Restaurante J",
 };
 
 /**
@@ -41,7 +53,7 @@ export function isAuthenticated(): boolean {
   
   return authenticated === "true" && 
          !!restaurantId && 
-         ["A", "B", "C", "D"].includes(restaurantId);
+         ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId);
 }
 
 /**
@@ -52,7 +64,7 @@ export function getRestaurantId(): RestaurantId | null {
   
   const restaurantId = localStorage.getItem(STORAGE_KEYS.restaurantId);
   
-  if (restaurantId && ["A", "B", "C", "D"].includes(restaurantId)) {
+  if (restaurantId && ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
     return restaurantId as RestaurantId;
   }
   
@@ -83,7 +95,11 @@ export function clearAuth(): void {
  * Validate PIN and return restaurant ID if valid
  */
 export function validatePIN(pin: string): RestaurantId | null {
-  const restaurantId = PIN_TO_RESTAURANT[pin.trim()];
+  const trimmedPin = pin.trim();
+  console.log("validatePIN called with:", trimmedPin);
+  console.log("Available PINs:", Object.keys(PIN_TO_RESTAURANT));
+  const restaurantId = PIN_TO_RESTAURANT[trimmedPin];
+  console.log("Found restaurantId:", restaurantId);
   return restaurantId || null;
 }
 

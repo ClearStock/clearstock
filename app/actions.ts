@@ -13,7 +13,7 @@ async function getRestaurantIdFromCookie(): Promise<RestaurantId | null> {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
   
-  if (restaurantId && ["A", "B", "C", "D"].includes(restaurantId)) {
+  if (restaurantId && ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
     return restaurantId as RestaurantId;
   }
   
