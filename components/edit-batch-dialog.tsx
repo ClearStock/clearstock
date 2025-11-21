@@ -261,6 +261,7 @@ export function EditBatchDialog({
                       <option value="Garrafa">Garrafa</option>
                       <option value="Caixa">Caixa</option>
                       <option value="Frasco">Frasco</option>
+                      <option value="Barril">Barril</option>
                       <option value="Pack">Pack</option>
                       <option value="Mini">Mini</option>
                       <option value="Média">Média</option>

@@ -294,6 +294,7 @@ export default function NewEntryForm({
                         <SelectItem value="Garrafa">Garrafa</SelectItem>
                         <SelectItem value="Caixa">Caixa</SelectItem>
                         <SelectItem value="Frasco">Frasco</SelectItem>
+                        <SelectItem value="Barril">Barril</SelectItem>
                         <SelectItem value="Pack">Pack</SelectItem>
                         <SelectItem value="Mini">Mini</SelectItem>
                         <SelectItem value="Média">Média</SelectItem>
