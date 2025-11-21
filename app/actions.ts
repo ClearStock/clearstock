@@ -437,7 +437,7 @@ export async function deleteProductBatch(batchId: string) {
     where: { id: batchId },
   });
 
-  revalidatePath("/stock");
+  revalidatePath("/stock", "page");
 }
 
 /**
