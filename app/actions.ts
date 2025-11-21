@@ -300,6 +300,7 @@ export async function createProductBatch(formData: FormData) {
     const packagingTypeRaw = formData.get("packagingType");
     const sizeRaw = formData.get("size");
     const sizeUnitRaw = formData.get("sizeUnit");
+    const homemadeRaw = formData.get("homemade");
 
     if (!name || !quantityRaw || !expiryDateRaw) {
       return {
@@ -324,6 +325,7 @@ export async function createProductBatch(formData: FormData) {
     const sizeRawValue = sizeRaw && String(sizeRaw).trim() !== "" ? String(sizeRaw).trim() : null;
     const size = sizeRawValue && !isNaN(Number(sizeRawValue)) && Number(sizeRawValue) > 0 ? Number(sizeRawValue) : null;
     const sizeUnit = size && sizeUnitRaw && String(sizeUnitRaw).trim() !== "" ? String(sizeUnitRaw).trim() : null;
+    const homemade = homemadeRaw === "on" || homemadeRaw === "true" || String(homemadeRaw) === "true";
 
     await db.productBatch.create({
       data: {
@@ -338,6 +340,7 @@ export async function createProductBatch(formData: FormData) {
         packagingType,
         size,
         sizeUnit,
+        homemade: homemade || false,
       },
     });
 
@@ -377,6 +380,7 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
     const packagingTypeRaw = formData.get("packagingType");
     const sizeRaw = formData.get("size");
     const sizeUnitRaw = formData.get("sizeUnit");
+    const homemadeRaw = formData.get("homemade");
 
     if (!name || !quantityRaw || !expiryDateRaw) {
       throw new Error("Campos obrigatórios em falta");
@@ -406,6 +410,7 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
     const sizeRawValue = sizeRaw && String(sizeRaw).trim() !== "" ? String(sizeRaw).trim() : null;
     const size = sizeRawValue && !isNaN(Number(sizeRawValue)) && Number(sizeRawValue) > 0 ? Number(sizeRawValue) : null;
     const sizeUnit = size && sizeUnitRaw && String(sizeUnitRaw).trim() !== "" ? String(sizeUnitRaw).trim() : null;
+    const homemade = homemadeRaw === "on" || homemadeRaw === "true" || String(homemadeRaw) === "true";
 
     await db.productBatch.update({
       where: { id: batchId },
@@ -419,6 +424,7 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
         packagingType,
         size,
         sizeUnit,
+        homemade: homemade || false,
       },
     });
 

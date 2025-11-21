@@ -343,6 +343,12 @@ export function StockViewSimple({
                                 Esgotado
                               </Badge>
                             )}
+                            {/* Homemade badge */}
+                            {batch.homemade && (
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                Feito na casa
+                              </Badge>
+                            )}
                           </div>
                           {/* Display packaging and size info if available */}
                           {(batch.packagingType || (batch.size && batch.sizeUnit)) && (

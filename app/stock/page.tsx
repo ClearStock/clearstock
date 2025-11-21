@@ -42,6 +42,7 @@ export default async function StockPage() {
         packagingType: true,
         size: true,
         sizeUnit: true,
+        homemade: true,
         status: true,
         restaurantId: true,
         createdAt: true,

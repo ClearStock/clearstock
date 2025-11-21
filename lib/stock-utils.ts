@@ -14,6 +14,7 @@ export type BatchWithRelations = Omit<ProductBatch, "expiryDate" | "createdAt" |
   packagingType?: string | null;
   size?: number | null;
   sizeUnit?: string | null;
+  homemade?: boolean;
   category: (Omit<Category, "createdAt" | "updatedAt"> & {
     createdAt: Date | string;
     updatedAt: Date | string;

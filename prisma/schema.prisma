@@ -103,6 +103,9 @@ model ProductBatch {
   size         Float?
   sizeUnit     String?
   
+  // Homemade flag
+  homemade     Boolean    @default(false)
+  
   status       BatchStatus @default(ACTIVE)
 
   restaurantId String

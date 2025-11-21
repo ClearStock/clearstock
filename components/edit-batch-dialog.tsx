@@ -182,6 +182,75 @@ export function EditBatchDialog({
                 className="h-11 md:h-10 text-base"
                 required
               />
+              {/* Quick expiry date buttons */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById("edit-expiryDate") as HTMLInputElement;
+                    if (input) {
+                      const today = new Date().toISOString().split("T")[0];
+                      input.value = today;
+                      input.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+                  disabled={isSubmitting}
+                >
+                  Hoje
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById("edit-expiryDate") as HTMLInputElement;
+                    if (input) {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const dateStr = tomorrow.toISOString().split("T")[0];
+                      input.value = dateStr;
+                      input.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+                  disabled={isSubmitting}
+                >
+                  +1 dia
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById("edit-expiryDate") as HTMLInputElement;
+                    if (input) {
+                      const in3Days = new Date();
+                      in3Days.setDate(in3Days.getDate() + 3);
+                      const dateStr = in3Days.toISOString().split("T")[0];
+                      input.value = dateStr;
+                      input.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+                  disabled={isSubmitting}
+                >
+                  +3 dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById("edit-expiryDate") as HTMLInputElement;
+                    if (input) {
+                      const in7Days = new Date();
+                      in7Days.setDate(in7Days.getDate() + 7);
+                      const dateStr = in7Days.toISOString().split("T")[0];
+                      input.value = dateStr;
+                      input.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+                  disabled={isSubmitting}
+                >
+                  +7 dias
+                </button>
+              </div>
             </div>
 
             {/* Category - Full width select */}
@@ -226,6 +295,24 @@ export function EditBatchDialog({
                     ))
                   : null}
               </select>
+            </div>
+
+            {/* Homemade checkbox */}
+            <div className="flex items-center space-x-2 pt-2">
+              <input
+                type="checkbox"
+                id="edit-homemade"
+                name="homemade"
+                defaultChecked={batch.homemade || false}
+                disabled={isSubmitting}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <Label
+                htmlFor="edit-homemade"
+                className="text-sm md:text-base font-medium cursor-pointer"
+              >
+                Feito na casa
+              </Label>
             </div>
 
             {/* Optional Details Section - Collapsible */}

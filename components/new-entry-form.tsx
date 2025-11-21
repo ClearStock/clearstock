@@ -44,6 +44,7 @@ export default function NewEntryForm({
     packagingType: "",
     size: "",
     sizeUnit: "",
+    homemade: false,
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -67,18 +68,19 @@ export default function NewEntryForm({
           });
 
           // Reset form
-          setFormData({
-            name: "",
-            quantity: "",
-            unit: "un",
-            expiryDate: "",
-            categoryId: "",
-            locationId: "",
-            packagingType: "",
-            size: "",
-            sizeUnit: "",
-          });
-          setShowDetails(false);
+                  setFormData({
+                    name: "",
+                    quantity: "",
+                    unit: "un",
+                    expiryDate: "",
+                    categoryId: "",
+                    locationId: "",
+                    packagingType: "",
+                    size: "",
+                    sizeUnit: "",
+                    homemade: false,
+                  });
+                  setShowDetails(false);
 
           // Reset form element (for native HTML form reset)
           formElement.reset();
@@ -199,6 +201,67 @@ export default function NewEntryForm({
                 required
                 disabled={isPending}
               />
+              {/* Quick expiry date buttons */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const today = new Date().toISOString().split("T")[0];
+                    setFormData((prev) => ({ ...prev, expiryDate: today }));
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                  disabled={isPending}
+                >
+                  Hoje
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const dateStr = tomorrow.toISOString().split("T")[0];
+                    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                  disabled={isPending}
+                >
+                  +1 dia
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const in3Days = new Date();
+                    in3Days.setDate(in3Days.getDate() + 3);
+                    const dateStr = in3Days.toISOString().split("T")[0];
+                    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                  disabled={isPending}
+                >
+                  +3 dias
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const in7Days = new Date();
+                    in7Days.setDate(in7Days.getDate() + 7);
+                    const dateStr = in7Days.toISOString().split("T")[0];
+                    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+                  }}
+                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                  disabled={isPending}
+                >
+                  +7 dias
+                </Button>
+              </div>
             </div>
 
             {/* Category - Full width */}
@@ -251,6 +314,27 @@ export default function NewEntryForm({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Homemade checkbox */}
+            <div className="flex items-center space-x-2 pt-2">
+              <input
+                type="checkbox"
+                id="homemade"
+                name="homemade"
+                checked={formData.homemade}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, homemade: e.target.checked }))
+                }
+                disabled={isPending}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <Label
+                htmlFor="homemade"
+                className="text-sm md:text-base font-medium cursor-pointer"
+              >
+                Feito na casa
+              </Label>
             </div>
 
             {/* Optional Details Section - Collapsible */}
