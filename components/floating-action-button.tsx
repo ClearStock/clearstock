@@ -11,9 +11,15 @@ import { usePathname } from "next/navigation";
 export function FloatingActionButton() {
   const pathname = usePathname();
   const publicRoutes = ["/", "/acesso"];
+  const pagesWithVoiceButton = ["/nova-entrada", "/entries/new"];
 
   // Only show on authenticated pages
   if (publicRoutes.includes(pathname)) {
+    return null;
+  }
+
+  // Don't show on pages that have voice button (to avoid overlap)
+  if (pagesWithVoiceButton.includes(pathname)) {
     return null;
   }
 

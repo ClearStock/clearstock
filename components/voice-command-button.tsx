@@ -114,21 +114,29 @@ export function VoiceCommandButton({
           const formData = new FormData();
           formData.append("audio", audioBlob, "recording.webm");
 
+          console.log("Sending audio to API, size:", audioBlob.size, "type:", audioBlob.type);
+
           const response = await fetch("/api/speech-to-text", {
             method: "POST",
             body: formData,
           });
 
+          console.log("API response status:", response.status);
+
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+            const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+            console.error("API error:", errorData);
+            throw new Error(errorData.error || errorData.details || `HTTP ${response.status}`);
           }
 
           const data = await response.json();
+          console.log("API response data:", data);
+          
           const transcription = data.text || "";
 
           if (!transcription) {
-            throw new Error("No transcription received");
+            console.warn("Empty transcription received, full response:", data);
+            throw new Error("No transcription received from API");
           }
 
           setTranscript(transcription);
@@ -220,7 +228,9 @@ export function VoiceCommandButton({
 
   // Button styles based on state
   const getButtonStyles = () => {
-    const baseStyles = "fixed bottom-4 right-4 md:bottom-6 md:right-6 bg-indigo-600 text-white rounded-full p-4 shadow-lg hover:bg-indigo-700 transition-all duration-200 z-50 disabled:opacity-50 disabled:cursor-not-allowed";
+    // Increased z-index to ensure visibility on mobile (9999 to be above everything)
+    // On mobile: bottom-16 to avoid conflict with nav, on desktop: bottom-6
+    const baseStyles = "fixed bottom-16 right-4 md:bottom-6 md:right-6 bg-indigo-600 text-white rounded-full p-4 shadow-lg hover:bg-indigo-700 transition-all duration-200 z-[9999] disabled:opacity-50 disabled:cursor-not-allowed w-14 h-14 flex items-center justify-center touch-manipulation";
     
     if (state === "recording") {
       return `${baseStyles} animate-pulse bg-red-600 hover:bg-red-700`;
@@ -257,7 +267,7 @@ export function VoiceCommandButton({
 
       {/* Transcript Display - Fixed position above button on mobile, or inline on desktop */}
       {(transcript || error) && (
-        <div className="fixed bottom-20 right-4 md:bottom-28 md:right-6 max-w-sm bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 z-40 animate-in slide-in-from-bottom-2">
+        <div className="fixed bottom-32 right-4 md:bottom-28 md:right-6 max-w-sm bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 z-[9998] animate-in slide-in-from-bottom-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -284,7 +294,7 @@ export function VoiceCommandButton({
 
       {/* Recording indicator text (optional, for better UX) */}
       {state === "recording" && (
-        <div className="fixed bottom-20 right-4 md:bottom-28 md:right-6 bg-red-600 text-white rounded-lg px-3 py-2 shadow-lg z-40 animate-in slide-in-from-bottom-2">
+        <div className="fixed bottom-32 right-4 md:bottom-28 md:right-6 bg-red-600 text-white rounded-lg px-3 py-2 shadow-lg z-[9998] animate-in slide-in-from-bottom-2">
           <p className="text-sm font-medium">A gravar... (máx. 5s)</p>
         </div>
       )}

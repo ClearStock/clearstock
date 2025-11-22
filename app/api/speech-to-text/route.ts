@@ -41,29 +41,51 @@ export async function POST(request: NextRequest) {
     // Convert File to Blob for ElevenLabs API
     const audioBlob = await audioFile.arrayBuffer();
 
+    console.log("Received audio file:", {
+      name: audioFile.name,
+      type: audioFile.type,
+      size: audioFile.size,
+    });
+
     // Prepare FormData for ElevenLabs API
     const elevenLabsFormData = new FormData();
-    elevenLabsFormData.append("file", new Blob([audioBlob], { type: audioFile.type }), audioFile.name);
+    
+    // Create a File object for ElevenLabs (they may require specific format)
+    const fileBlob = new Blob([audioBlob], { type: audioFile.type || "audio/webm" });
+    elevenLabsFormData.append("file", fileBlob, audioFile.name || "audio.webm");
 
-    // Optional: Add model and language parameters if needed
-    // For Portuguese (Portugal), we can specify language
-    // Note: Some ElevenLabs STT endpoints may use query params or different field names
-    // Adjust based on actual API documentation
-    elevenLabsFormData.append("language", "pt-PT");
+    // ElevenLabs STT API may accept language as form field or query param
+    // Try both approaches - form field first
+    elevenLabsFormData.append("language_code", "pt-PT");
+
+    console.log("Sending to ElevenLabs API...");
 
     // Call ElevenLabs Speech-to-Text API
     // Endpoint: https://api.elevenlabs.io/v1/speech-to-text
+    // Alternative endpoints to try if this fails:
+    // - https://api.elevenlabs.io/v1/speech-to-text/transcribe
+    // - https://api.elevenlabs.io/v1/speech-to-text/convert
     const response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
       method: "POST",
       headers: {
         "xi-api-key": apiKey,
+        // Don't set Content-Type - let browser set it with boundary for FormData
       },
       body: elevenLabsFormData,
     });
 
+    console.log("ElevenLabs API response status:", response.status, response.statusText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("ElevenLabs API error:", response.status, errorText);
+      let errorText: string;
+      try {
+        const errorJson = await response.json();
+        errorText = JSON.stringify(errorJson);
+        console.error("ElevenLabs API error (JSON):", response.status, errorJson);
+      } catch {
+        errorText = await response.text();
+        console.error("ElevenLabs API error (text):", response.status, errorText);
+      }
       
       return NextResponse.json(
         { 
@@ -75,17 +97,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse response from ElevenLabs
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+      console.log("ElevenLabs API response data:", data);
+    } catch (parseError) {
+      const textResponse = await response.text();
+      console.error("Failed to parse JSON response, got text:", textResponse);
+      return NextResponse.json(
+        { error: "Invalid response from API", details: textResponse },
+        { status: 500 }
+      );
+    }
 
     // Extract transcription text
-    // ElevenLabs STT API typically returns: { text: "..." }
-    // Adjust based on actual API response structure
-    const transcription = data.text || data.transcription || "";
+    // ElevenLabs STT API may return different structures:
+    // - { text: "..." }
+    // - { transcription: "..." }
+    // - { result: { text: "..." } }
+    const transcription = data.text || data.transcription || data.result?.text || data.data?.text || "";
 
     if (!transcription) {
-      console.warn("No transcription found in ElevenLabs response:", data);
+      console.warn("No transcription found in ElevenLabs response. Full response:", JSON.stringify(data, null, 2));
       return NextResponse.json(
-        { error: "No transcription received from API" },
+        { 
+          error: "No transcription received from API",
+          details: "API returned success but no transcription text. Check API response structure.",
+          debug: data
+        },
         { status: 500 }
       );
     }
