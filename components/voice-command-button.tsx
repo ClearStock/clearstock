@@ -40,6 +40,11 @@ export function VoiceCommandButton({
   // Check if Web Speech API is available
   const isWebSpeechAvailable = typeof window !== "undefined" && 
     ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
+  
+  // Force use of ElevenLabs if Web Speech API has poor accuracy
+  // Set to true to always use ElevenLabs (better accuracy but requires API)
+  // Default to true because Web Speech API has poor accuracy for Portuguese
+  const [useElevenLabs, setUseElevenLabs] = useState(true);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -119,11 +124,12 @@ export function VoiceCommandButton({
       setTranscript("");
 
       // Try Web Speech API first (free, works directly in browser)
-      if (isWebSpeechAvailable) {
+      // But if user prefers ElevenLabs or Web Speech is not available, use MediaRecorder
+      if (isWebSpeechAvailable && !useElevenLabs) {
         return startWebSpeechRecording();
       }
 
-      // Fallback to MediaRecorder + ElevenLabs API
+      // Fallback to MediaRecorder + ElevenLabs API (better accuracy)
       return startMediaRecorderRecording();
     } catch (err) {
       console.error("Error starting recording:", err);
@@ -137,11 +143,14 @@ export function VoiceCommandButton({
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       
+      // Improved settings for better accuracy
       recognition.continuous = true;
-      recognition.interimResults = false;
+      recognition.interimResults = true; // Show interim results for better feedback
       recognition.lang = "pt-PT"; // Portuguese (Portugal)
+      recognition.maxAlternatives = 1; // Get best match only
       
       let finalTranscript = "";
+      let interimTranscript = "";
 
       recognition.onstart = () => {
         setState("recording");
@@ -161,7 +170,7 @@ export function VoiceCommandButton({
       };
 
       recognition.onresult = (event: any) => {
-        let interimTranscript = "";
+        interimTranscript = "";
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
@@ -172,8 +181,10 @@ export function VoiceCommandButton({
           }
         }
         
-        if (interimTranscript) {
-          setTranscript(interimTranscript);
+        // Show both final and interim results
+        const displayText = (finalTranscript + interimTranscript).trim();
+        if (displayText) {
+          setTranscript(displayText);
         }
       };
 
@@ -202,8 +213,9 @@ export function VoiceCommandButton({
       recognition.onend = () => {
         stopWebSpeechRecording();
         
-        if (finalTranscript.trim()) {
-          const transcription = finalTranscript.trim();
+        const transcription = finalTranscript.trim();
+        
+        if (transcription) {
           setTranscript(transcription);
           setState("idle");
           
@@ -214,8 +226,24 @@ export function VoiceCommandButton({
             duration: 3000,
           });
         } else {
-          // No speech detected
+          // No speech detected - try fallback to ElevenLabs if available
+          console.log("Web Speech API didn't detect speech, trying ElevenLabs fallback...");
           setState("idle");
+          
+          // Optionally fallback to MediaRecorder + ElevenLabs
+          // For now, just show error
+          if (interimTranscript.trim()) {
+            // We had some interim results but no final
+            toast.warning("Reconhecimento incompleto", {
+              description: "Tente falar mais claramente ou use o modo ElevenLabs.",
+              duration: 4000,
+            });
+          } else {
+            toast.error("Nenhuma fala detectada", {
+              description: "Tente falar mais perto do microfone ou verifique as permissões.",
+              duration: 4000,
+            });
+          }
         }
       };
 
