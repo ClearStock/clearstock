@@ -11,8 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
-import { VoiceCommandButton } from "@/components/voice-command-button";
-import { parseVoiceCommand } from "@/lib/voice-parser";
 
 import type { Category, Location } from "@prisma/client";
 
@@ -117,82 +115,6 @@ export default function NewEntryForm({
     }));
   };
 
-  const handleVoiceTranscript = (text: string) => {
-    console.log("Voice command received:", text);
-    
-    // Parse the voice command to extract product information
-    const parsed = parseVoiceCommand(text);
-    
-    console.log("Parsed command:", parsed);
-    
-    // Update form data with parsed information
-    setFormData((prev) => {
-      const updated = { ...prev };
-      
-      // Update name if found
-      if (parsed.name) {
-        updated.name = parsed.name;
-      }
-      
-      // Update quantity if found
-      if (parsed.quantity) {
-        updated.quantity = parsed.quantity;
-      }
-      
-      // Update unit if found
-      if (parsed.unit) {
-        updated.unit = parsed.unit;
-      }
-      
-      // Update expiry date if found
-      if (parsed.expiryDate) {
-        updated.expiryDate = parsed.expiryDate;
-      }
-      
-      // Update homemade if found
-      if (parsed.homemade !== undefined) {
-        updated.homemade = parsed.homemade;
-      }
-      
-      // Try to match category if found
-      if (parsed.category && categories.length > 0) {
-        const matchedCategory = categories.find(
-          (cat) => cat.name.toLowerCase() === parsed.category?.toLowerCase()
-        );
-        if (matchedCategory) {
-          updated.categoryId = matchedCategory.id;
-        }
-      }
-      
-      return updated;
-    });
-    
-    // Show success toast with what was parsed
-    const parsedFields = [];
-    if (parsed.name) parsedFields.push(`Nome: ${parsed.name}`);
-    if (parsed.quantity) parsedFields.push(`Quantidade: ${parsed.quantity} ${parsed.unit || "un"}`);
-    if (parsed.expiryDate) {
-      const days = parsed.expiryDays !== undefined ? parsed.expiryDays : "?";
-      parsedFields.push(`Validade: ${days === 0 ? "Hoje" : days === 1 ? "Amanhã" : `+${days} dias`}`);
-    }
-    
-    if (parsedFields.length > 0) {
-      toast.success("Comando de voz processado", {
-        description: parsedFields.join(" • "),
-        duration: 4000,
-      });
-    } else {
-      // If parsing failed, just fill the name field with the full text
-      setFormData((prev) => ({
-        ...prev,
-        name: text.trim(),
-      }));
-      toast.info("Comando de voz recebido", {
-        description: "Alguns campos foram preenchidos. Verifique e complete manualmente se necessário.",
-        duration: 4000,
-      });
-    }
-  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -531,9 +453,6 @@ export default function NewEntryForm({
           </form>
         </CardContent>
       </Card>
-
-      {/* Voice Command Button - Floating action button */}
-      <VoiceCommandButton onTranscript={handleVoiceTranscript} />
     </div>
   );
 }
