@@ -42,7 +42,7 @@ export default async function StockPage() {
         packagingType: true,
         size: true,
         sizeUnit: true,
-        homemade: true,
+        tipo: true,
         status: true,
         restaurantId: true,
         createdAt: true,
@@ -51,6 +51,7 @@ export default async function StockPage() {
           select: {
             id: true,
             name: true,
+            tipo: true,
             alertDaysBeforeExpiry: true,
             warningDaysBeforeExpiry: true,
             restaurantId: true,

@@ -12,6 +12,8 @@ model Restaurant {
   id                    String   @id @default(cuid())
   name                  String
   alertDaysBeforeExpiry Int      @default(3)
+  alertDaysBeforeExpiryMP Int    @default(3)
+  alertDaysBeforeExpiryTransformado Int @default(1)
   
   users                 User[]
   categories            Category[]
@@ -37,9 +39,15 @@ model User {
   updatedAt    DateTime   @updatedAt
 }
 
+enum ProductType {
+  mp
+  transformado
+}
+
 model Category {
   id           String         @id @default(cuid())
   name         String
+  tipo         ProductType    @default(mp)
   alertDaysBeforeExpiry Int?
   warningDaysBeforeExpiry Int?
   
@@ -98,13 +106,13 @@ model ProductBatch {
   expiryDate   DateTime
   imageUrl     String?
   
+  // Product type: raw material or transformed
+  tipo         ProductType @default(mp)
+  
   // Optional product details
   packagingType String?
   size         Float?
   sizeUnit     String?
-  
-  // Homemade flag
-  homemade     Boolean    @default(false)
   
   status       BatchStatus @default(ACTIVE)
 

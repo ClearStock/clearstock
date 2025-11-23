@@ -109,23 +109,36 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
         <TabsContent value="general" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
           <Card>
             <CardHeader className="px-4 pt-4 md:px-6 md:pt-6">
-              <CardTitle className="text-lg md:text-xl">Alertas de Validade</CardTitle>
+              <CardTitle className="text-lg md:text-xl">Avisos de Validade</CardTitle>
               <CardDescription className="text-sm md:text-base">
-                Configure quantos dias antes da validade mostrar alertas
+                Configure quantos dias antes da validade mostrar alertas para cada tipo de produto
               </CardDescription>
             </CardHeader>
             <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
               <form action={updateSettings} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="alertDays" className="text-sm md:text-base font-medium">
-                    Dias antes da validade
+                  <label htmlFor="alertDaysMP" className="text-sm md:text-base font-medium">
+                    Dias de aviso — Matérias-primas
                   </label>
                   <Input
-                    id="alertDays"
-                    name="alertDays"
+                    id="alertDaysMP"
+                    name="alertDaysMP"
                     type="number"
                     min="1"
-                    defaultValue={restaurant.alertDaysBeforeExpiry}
+                    defaultValue={(restaurant as any).alertDaysBeforeExpiryMP ?? restaurant.alertDaysBeforeExpiry ?? 3}
+                    className="w-full md:max-w-xs h-11 md:h-10 text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="alertDaysTransformado" className="text-sm md:text-base font-medium">
+                    Dias de aviso — Transformados
+                  </label>
+                  <Input
+                    id="alertDaysTransformado"
+                    name="alertDaysTransformado"
+                    type="number"
+                    min="1"
+                    defaultValue={(restaurant as any).alertDaysBeforeExpiryTransformado ?? 1}
                     className="w-full md:max-w-xs h-11 md:h-10 text-base"
                   />
                 </div>
@@ -139,16 +152,18 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
 
         {/* Tab: Categorias - Mobile-first layout */}
         <TabsContent value="categories" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
+          {/* Matérias-primas Categories */}
           <Card>
             <CardHeader className="px-4 pt-4 md:px-6 md:pt-6">
-              <CardTitle className="text-lg md:text-xl">Categorias</CardTitle>
+              <CardTitle className="text-lg md:text-xl">Categorias de Matérias-primas</CardTitle>
               <CardDescription className="text-sm md:text-base">
-                Gerir categorias de produtos
+                Gerir categorias para matérias-primas
               </CardDescription>
             </CardHeader>
             <CardContent className="px-4 pb-4 md:px-6 md:pb-6 space-y-4 md:space-y-5">
               {/* Stack form on mobile, row on desktop */}
               <form action={handleCreateCategory} className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                <input type="hidden" name="tipo" value="mp" />
                 <Input
                   name="name"
                   placeholder="Nome da categoria"
@@ -167,6 +182,174 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
                   {isPending ? "A guardar..." : "Adicionar"}
                 </Button>
               </form>
+
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="text-sm md:text-base font-medium">Categorias existentes</h3>
+                <ul className="space-y-3 md:space-y-4">
+                  {restaurant.categories
+                    .filter((cat) => (cat as any).tipo === "mp")
+                    .map((category) => (
+                      <li
+                        key={category.id}
+                        className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 rounded-lg border p-3 md:p-4"
+                      >
+                        <div className="space-y-3 flex-1 min-w-0">
+                          <p className="font-medium text-base md:text-lg">{category.name}</p>
+                          {/* Alert inputs - Stack on mobile, row on desktop */}
+                          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 text-sm md:text-base">
+                            <div className="flex-1 space-y-1">
+                              <label className="text-xs md:text-sm font-medium">Aviso urgente (dias)</label>
+                              <form action={updateCategoryAlertById} className="flex gap-2">
+                                <input type="hidden" name="categoryId" value={category.id} />
+                                <Input
+                                  name="alertDays"
+                                  type="number"
+                                  min="0"
+                                  defaultValue={category.alertDaysBeforeExpiry ?? restaurant.alertDaysBeforeExpiry ?? 3}
+                                  className="w-full sm:w-24 h-10 md:h-9 text-base"
+                                />
+                                <Button type="submit" size="sm" variant="outline" className="flex-shrink-0 border border-gray-300 text-gray-700 rounded-lg py-2 px-4">
+                                  Guardar
+                                </Button>
+                              </form>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <label className="text-xs md:text-sm font-medium">Aviso (dias)</label>
+                              <form action={updateCategoryAlertById} className="flex gap-2">
+                                <input type="hidden" name="categoryId" value={category.id} />
+                                <Input
+                                  name="warningDays"
+                                  type="number"
+                                  min="0"
+                                  defaultValue={category.warningDaysBeforeExpiry ?? restaurant.alertDaysBeforeExpiry ?? 3}
+                                  className="w-full sm:w-24 h-10 md:h-9 text-base"
+                                />
+                                <Button type="submit" size="sm" variant="outline" className="flex-shrink-0 border border-gray-300 text-gray-700 rounded-lg py-2 px-4">
+                                  Guardar
+                                </Button>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Delete button - Larger touch target on mobile */}
+                        <form action={deleteCategoryById} className="flex-shrink-0">
+                          <input type="hidden" name="categoryId" value={category.id} />
+                          <Button
+                            type="submit"
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 md:h-9 md:w-9 text-destructive hover:text-destructive touch-manipulation self-start sm:self-center"
+                            aria-label="Eliminar categoria"
+                          >
+                            <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
+                          </Button>
+                        </form>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Transformados Categories */}
+          <Card>
+            <CardHeader className="px-4 pt-4 md:px-6 md:pt-6">
+              <CardTitle className="text-lg md:text-xl">Categorias de Transformados</CardTitle>
+              <CardDescription className="text-sm md:text-base">
+                Gerir categorias para produtos transformados
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 md:px-6 md:pb-6 space-y-4 md:space-y-5">
+              {/* Stack form on mobile, row on desktop */}
+              <form action={handleCreateCategory} className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                <input type="hidden" name="tipo" value="transformado" />
+                <Input
+                  name="name"
+                  placeholder="Nome da categoria"
+                  className="flex-1 h-11 md:h-10 text-base"
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  required
+                  disabled={isPending}
+                />
+                <Button 
+                  type="submit" 
+                  className="w-full sm:w-auto bg-indigo-600 text-white rounded-lg py-3 px-4 shadow-md hover:bg-indigo-700" 
+                  size="lg"
+                  disabled={isPending}
+                >
+                  {isPending ? "A guardar..." : "Adicionar"}
+                </Button>
+              </form>
+
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="text-sm md:text-base font-medium">Categorias existentes</h3>
+                <ul className="space-y-3 md:space-y-4">
+                  {restaurant.categories
+                    .filter((cat) => (cat as any).tipo === "transformado")
+                    .map((category) => (
+                      <li
+                        key={category.id}
+                        className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 rounded-lg border p-3 md:p-4"
+                      >
+                        <div className="space-y-3 flex-1 min-w-0">
+                          <p className="font-medium text-base md:text-lg">{category.name}</p>
+                          {/* Alert inputs - Stack on mobile, row on desktop */}
+                          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 text-sm md:text-base">
+                            <div className="flex-1 space-y-1">
+                              <label className="text-xs md:text-sm font-medium">Aviso urgente (dias)</label>
+                              <form action={updateCategoryAlertById} className="flex gap-2">
+                                <input type="hidden" name="categoryId" value={category.id} />
+                                <Input
+                                  name="alertDays"
+                                  type="number"
+                                  min="0"
+                                  defaultValue={category.alertDaysBeforeExpiry ?? (restaurant as any).alertDaysBeforeExpiryTransformado ?? 1}
+                                  className="w-full sm:w-24 h-10 md:h-9 text-base"
+                                />
+                                <Button type="submit" size="sm" variant="outline" className="flex-shrink-0 border border-gray-300 text-gray-700 rounded-lg py-2 px-4">
+                                  Guardar
+                                </Button>
+                              </form>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <label className="text-xs md:text-sm font-medium">Aviso (dias)</label>
+                              <form action={updateCategoryAlertById} className="flex gap-2">
+                                <input type="hidden" name="categoryId" value={category.id} />
+                                <Input
+                                  name="warningDays"
+                                  type="number"
+                                  min="0"
+                                  defaultValue={category.warningDaysBeforeExpiry ?? (restaurant as any).alertDaysBeforeExpiryTransformado ?? 1}
+                                  className="w-full sm:w-24 h-10 md:h-9 text-base"
+                                />
+                                <Button type="submit" size="sm" variant="outline" className="flex-shrink-0 border border-gray-300 text-gray-700 rounded-lg py-2 px-4">
+                                  Guardar
+                                </Button>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Delete button - Larger touch target on mobile */}
+                        <form action={deleteCategoryById} className="flex-shrink-0">
+                          <input type="hidden" name="categoryId" value={category.id} />
+                          <Button
+                            type="submit"
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 md:h-9 md:w-9 text-destructive hover:text-destructive touch-manipulation self-start sm:self-center"
+                            aria-label="Eliminar categoria"
+                          >
+                            <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
+                          </Button>
+                        </form>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
               <div className="space-y-3 md:space-y-4">
                 <h3 className="text-sm md:text-base font-medium">Categorias existentes</h3>

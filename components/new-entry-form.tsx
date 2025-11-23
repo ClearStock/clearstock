@@ -35,16 +35,17 @@ export default function NewEntryForm({
   const [isPending, startTransition] = useTransition();
   const [showDetails, setShowDetails] = useState(false);
   const [formData, setFormData] = useState({
+    tipo: "mp" as "mp" | "transformado",
     name: "",
     quantity: "",
     unit: "un",
     expiryDate: "",
+    extraDays: "", // For transformado: additional days beyond quick buttons
     categoryId: "",
     locationId: "",
     packagingType: "",
     size: "",
     sizeUnit: "",
-    homemade: false,
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -55,6 +56,16 @@ export default function NewEntryForm({
 
     const formElement = e.currentTarget;
     const formDataObj = new FormData(formElement);
+    
+    // Add tipo to form data
+    formDataObj.append("tipo", formData.tipo);
+    
+    // For transformado, ensure expiryDate is set correctly
+    if (formData.tipo === "transformado" && !formData.expiryDate) {
+      // Default to today if no date set
+      const today = new Date().toISOString().split("T")[0];
+      formDataObj.set("expiryDate", today);
+    }
 
     startTransition(async () => {
       try {
@@ -69,16 +80,17 @@ export default function NewEntryForm({
 
           // Reset form
                   setFormData({
+                    tipo: "mp",
                     name: "",
                     quantity: "",
                     unit: "un",
                     expiryDate: "",
+                    extraDays: "",
                     categoryId: "",
                     locationId: "",
                     packagingType: "",
                     size: "",
                     sizeUnit: "",
-                    homemade: false,
                   });
                   setShowDetails(false);
 
@@ -187,83 +199,187 @@ export default function NewEntryForm({
               </div>
             </div>
 
-            {/* Expiry date - Full width, larger input for mobile date picker */}
-            <div className="space-y-2">
-              <Label htmlFor="expiryDate" className="text-sm md:text-base font-medium">
-                Data de validade
-              </Label>
-              <Input
-                id="expiryDate"
-                name="expiryDate"
-                type="date"
-                value={formData.expiryDate}
-                onChange={handleInputChange}
-                className="h-11 md:h-10 text-base"
-                required
-                disabled={isPending}
-              />
-              {/* Quick expiry date buttons */}
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const today = new Date().toISOString().split("T")[0];
-                    setFormData((prev) => ({ ...prev, expiryDate: today }));
-                  }}
-                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+            {/* Expiry date - Different UI for MP vs Transformado */}
+            {formData.tipo === "mp" ? (
+              <div className="space-y-2">
+                <Label htmlFor="expiryDate" className="text-sm md:text-base font-medium">
+                  Data de validade
+                </Label>
+                <Input
+                  id="expiryDate"
+                  name="expiryDate"
+                  type="date"
+                  value={formData.expiryDate}
+                  onChange={handleInputChange}
+                  className="h-11 md:h-10 text-base"
+                  required
                   disabled={isPending}
-                >
-                  Hoje
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const dateStr = tomorrow.toISOString().split("T")[0];
-                    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
-                  }}
-                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                  disabled={isPending}
-                >
-                  +1 dia
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const in3Days = new Date();
-                    in3Days.setDate(in3Days.getDate() + 3);
-                    const dateStr = in3Days.toISOString().split("T")[0];
-                    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
-                  }}
-                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                  disabled={isPending}
-                >
-                  +3 dias
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const in7Days = new Date();
-                    in7Days.setDate(in7Days.getDate() + 7);
-                    const dateStr = in7Days.toISOString().split("T")[0];
-                    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
-                  }}
-                  className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
-                  disabled={isPending}
-                >
-                  +7 dias
-                </Button>
+                />
+                {/* Quick expiry date buttons for MP */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date().toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: today }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    Hoje
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const dateStr = tomorrow.toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    +1 dia
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const in3Days = new Date();
+                      in3Days.setDate(in3Days.getDate() + 3);
+                      const dateStr = in3Days.toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    +3 dias
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const in7Days = new Date();
+                      in7Days.setDate(in7Days.getDate() + 7);
+                      const dateStr = in7Days.toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    +7 dias
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-sm md:text-base font-medium">
+                  Validade (dias)
+                </Label>
+                {/* Quick expiry buttons for Transformado */}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date().toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: today, extraDays: "" }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    Hoje
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const dateStr = tomorrow.toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: dateStr, extraDays: "" }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    +1 dia
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const in3Days = new Date();
+                      in3Days.setDate(in3Days.getDate() + 3);
+                      const dateStr = in3Days.toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: dateStr, extraDays: "" }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    +3 dias
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const in7Days = new Date();
+                      in7Days.setDate(in7Days.getDate() + 7);
+                      const dateStr = in7Days.toISOString().split("T")[0];
+                      setFormData((prev) => ({ ...prev, expiryDate: dateStr, extraDays: "" }));
+                    }}
+                    className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+                    disabled={isPending}
+                  >
+                    +7 dias
+                  </Button>
+                </div>
+                {/* Extra days input for Transformado */}
+                <div className="space-y-2">
+                  <Label htmlFor="extraDays" className="text-sm md:text-base font-medium">
+                    Adicionar validade extra (em dias)
+                  </Label>
+                  <Input
+                    id="extraDays"
+                    name="extraDays"
+                    type="number"
+                    min="0"
+                    value={formData.extraDays}
+                    onChange={(e) => {
+                      const days = parseInt(e.target.value) || 0;
+                      if (days >= 0) {
+                        const baseDate = formData.expiryDate ? new Date(formData.expiryDate) : new Date();
+                        const newDate = new Date(baseDate);
+                        newDate.setDate(newDate.getDate() + days);
+                        setFormData((prev) => ({ 
+                          ...prev, 
+                          extraDays: e.target.value,
+                          expiryDate: newDate.toISOString().split("T")[0]
+                        }));
+                      }
+                    }}
+                    placeholder="Ex: 2 (adiciona 2 dias)"
+                    className="h-11 md:h-10 text-base"
+                    disabled={isPending}
+                  />
+                </div>
+                {/* Hidden date field for form submission */}
+                <Input
+                  name="expiryDate"
+                  type="hidden"
+                  value={formData.expiryDate}
+                />
+              </div>
+            )}
 
             {/* Category - Full width */}
             <div className="space-y-2">
@@ -317,26 +433,6 @@ export default function NewEntryForm({
               </Select>
             </div>
 
-            {/* Homemade checkbox */}
-            <div className="flex items-center space-x-2 pt-2">
-              <input
-                type="checkbox"
-                id="homemade"
-                name="homemade"
-                checked={formData.homemade}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, homemade: e.target.checked }))
-                }
-                disabled={isPending}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <Label
-                htmlFor="homemade"
-                className="text-sm md:text-base font-medium cursor-pointer"
-              >
-                Feito na casa
-              </Label>
-            </div>
 
             {/* Optional Details Section - Collapsible */}
             <div className="pt-4 md:pt-6 border-t">

@@ -36,6 +36,7 @@ interface StockViewSimpleProps {
  * Versão simplificada do StockView com Search bar
  */
 export type StatusFilter = "all" | "expired" | "urgent" | "attention" | "ok";
+export type TipoFilter = "mp" | "transformado" | "all";
 
 export function StockViewSimple({
   batches,
@@ -47,14 +48,49 @@ export function StockViewSimple({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   
-  // Initialize status filter from prop (passed from wrapper that reads URL)
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    (initialStatusFilter && ["expired", "urgent", "attention", "ok"].includes(initialStatusFilter)
-      ? initialStatusFilter
-      : "all") as StatusFilter
-  );
-  const [showFinished, setShowFinished] = useState(false); // Toggle to show finished items
-  const [searchQuery, setSearchQuery] = useState("");
+  // Tab state: which tipo tab is active
+  const [activeTab, setActiveTab] = useState<TipoFilter>("all");
+  
+  // Separate filter state per tab
+  const [filters, setFilters] = useState<Record<TipoFilter, {
+    statusFilter: StatusFilter;
+    searchQuery: string;
+    categoryFilter: string;
+    locationFilter: string;
+    showFinished: boolean;
+  }>>({
+    mp: {
+      statusFilter: (initialStatusFilter && ["expired", "urgent", "attention", "ok"].includes(initialStatusFilter)
+        ? initialStatusFilter
+        : "all") as StatusFilter,
+      searchQuery: "",
+      categoryFilter: "",
+      locationFilter: "",
+      showFinished: false,
+    },
+    transformado: {
+      statusFilter: "all",
+      searchQuery: "",
+      categoryFilter: "",
+      locationFilter: "",
+      showFinished: false,
+    },
+    all: {
+      statusFilter: "all",
+      searchQuery: "",
+      categoryFilter: "",
+      locationFilter: "",
+      showFinished: false,
+    },
+  });
+  
+  // Get current tab's filters
+  const currentFilters = filters[activeTab];
+  const statusFilter = currentFilters.statusFilter;
+  const searchQuery = currentFilters.searchQuery;
+  const categoryFilter = currentFilters.categoryFilter;
+  const locationFilter = currentFilters.locationFilter;
+  const showFinished = currentFilters.showFinished;
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<BatchWithRelations | null>(
     null
@@ -69,11 +105,26 @@ export function StockViewSimple({
   // Update status filter when prop changes (e.g., from navigation)
   useEffect(() => {
     if (initialStatusFilter && ["expired", "urgent", "attention", "ok"].includes(initialStatusFilter)) {
-      setStatusFilter(initialStatusFilter as StatusFilter);
-    } else {
-      setStatusFilter("all");
+      setFilters(prev => ({
+        ...prev,
+        [activeTab]: {
+          ...prev[activeTab],
+          statusFilter: initialStatusFilter as StatusFilter,
+        },
+      }));
     }
-  }, [initialStatusFilter]);
+  }, [initialStatusFilter, activeTab]);
+  
+  // Helper to update current tab's filters
+  const updateCurrentFilters = (updates: Partial<typeof currentFilters>) => {
+    setFilters(prev => ({
+      ...prev,
+      [activeTab]: {
+        ...prev[activeTab],
+        ...updates,
+      },
+    }));
+  };
 
   const handleEdit = (batch: BatchWithRelations) => {
     if (!batch || !batch.id) {
@@ -112,7 +163,7 @@ export function StockViewSimple({
 
   // Update URL when status filter changes (optional but useful for sharing/bookmarking)
   const handleStatusFilterChange = (filter: StatusFilter) => {
-    setStatusFilter(filter);
+    updateCurrentFilters({ statusFilter: filter });
     if (filter === "all") {
       router.push("/stock", { scroll: false });
     } else {
@@ -146,9 +197,30 @@ export function StockViewSimple({
     });
   };
 
-  // Filtrar batches baseado na pesquisa, filtro de status e finished items
+  // Get categories filtered by tipo
+  const filteredCategories = useMemo(() => {
+    if (activeTab === "all") return categories;
+    return categories.filter(cat => (cat as any).tipo === activeTab);
+  }, [categories, activeTab]);
+
+  // Filtrar batches baseado na pesquisa, filtro de status, tipo, categoria, localização e finished items
   const filteredBatches = useMemo(() => {
     let filtered = batches;
+
+    // Filter by tipo (product type)
+    if (activeTab !== "all") {
+      filtered = filtered.filter((batch) => (batch as any).tipo === activeTab);
+    }
+
+    // Filter by category
+    if (categoryFilter) {
+      filtered = filtered.filter((batch) => batch.category?.id === categoryFilter);
+    }
+
+    // Filter by location
+    if (locationFilter) {
+      filtered = filtered.filter((batch) => batch.location?.id === locationFilter);
+    }
 
     // Filter by finished status (by default, hide finished items)
     if (!showFinished) {
@@ -172,7 +244,7 @@ export function StockViewSimple({
     }
 
     return filtered;
-  }, [batches, searchQuery, statusFilter, showFinished, restaurant]);
+  }, [batches, searchQuery, statusFilter, showFinished, restaurant, activeTab, categoryFilter, locationFilter]);
 
   // Agrupar por categoria
   const batchesByCategory = useMemo(
@@ -195,6 +267,68 @@ export function StockViewSimple({
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Tipo Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 pb-2">
+        <button
+          onClick={() => setActiveTab("mp")}
+          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+            activeTab === "mp"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+          }`}
+        >
+          Matérias-primas
+        </button>
+        <button
+          onClick={() => setActiveTab("transformado")}
+          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+            activeTab === "transformado"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+          }`}
+        >
+          Transformados
+        </button>
+        <button
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+            activeTab === "all"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+          }`}
+        >
+          Todos
+        </button>
+      </div>
+
+      {/* Category and Location filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <select
+          value={categoryFilter}
+          onChange={(e) => updateCurrentFilters({ categoryFilter: e.target.value })}
+          className="flex-1 h-11 md:h-10 text-base border-gray-300 rounded-lg px-4 py-2"
+        >
+          <option value="">Todas as categorias</option>
+          {filteredCategories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={locationFilter}
+          onChange={(e) => updateCurrentFilters({ locationFilter: e.target.value })}
+          className="flex-1 h-11 md:h-10 text-base border-gray-300 rounded-lg px-4 py-2"
+        >
+          <option value="">Todas as localizações</option>
+          {locations.map((loc) => (
+            <option key={loc.id} value={loc.id}>
+              {loc.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Show finished toggle and status filters */}
       <div className="flex flex-col gap-3 mb-4">
         {/* Toggle to show finished items */}
@@ -203,7 +337,7 @@ export function StockViewSimple({
             type="checkbox"
             id="showFinished"
             checked={showFinished}
-            onChange={(e) => setShowFinished(e.target.checked)}
+            onChange={(e) => updateCurrentFilters({ showFinished: e.target.checked })}
             className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <label htmlFor="showFinished" className="text-sm font-medium text-gray-700 cursor-pointer">
@@ -282,7 +416,7 @@ export function StockViewSimple({
         <Input
           placeholder="Pesquisar produto..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => updateCurrentFilters({ searchQuery: e.target.value })}
           className="pl-9 md:pl-10 h-11 md:h-10 text-base border-gray-300 rounded-lg px-4 py-2 w-full"
         />
       </div>
@@ -343,10 +477,10 @@ export function StockViewSimple({
                                 Esgotado
                               </Badge>
                             )}
-                            {/* Homemade badge */}
-                            {batch.homemade && (
-                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                Feito na casa
+                            {/* Transformado badge */}
+                            {(batch as any).tipo === "transformado" && (
+                              <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                                Transformado
                               </Badge>
                             )}
                           </div>

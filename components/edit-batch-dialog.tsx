@@ -253,7 +253,7 @@ export function EditBatchDialog({
               </div>
             </div>
 
-            {/* Category - Full width select */}
+            {/* Category - Full width select, filtered by tipo */}
             <div className="space-y-2">
               <Label htmlFor="edit-categoryId" className="text-sm md:text-base font-medium">
                 Categoria
@@ -266,11 +266,13 @@ export function EditBatchDialog({
               >
                 <option value="">Sem categoria</option>
                 {categories && categories.length > 0
-                  ? categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))
+                  ? categories
+                      .filter((cat) => (cat as any).tipo === ((batch as any).tipo || "mp"))
+                      .map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))
                   : null}
               </select>
             </div>
@@ -297,22 +299,20 @@ export function EditBatchDialog({
               </select>
             </div>
 
-            {/* Homemade checkbox */}
-            <div className="flex items-center space-x-2 pt-2">
-              <input
-                type="checkbox"
-                id="edit-homemade"
-                name="homemade"
-                defaultChecked={batch.homemade || false}
-                disabled={isSubmitting}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <Label
-                htmlFor="edit-homemade"
-                className="text-sm md:text-base font-medium cursor-pointer"
-              >
-                Feito na casa
+            {/* Product type */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-tipo" className="text-sm md:text-base font-medium">
+                Tipo de produto
               </Label>
+              <select
+                id="edit-tipo"
+                name="tipo"
+                defaultValue={(batch as any).tipo || "mp"}
+                className="flex h-11 md:h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="mp">Matéria-prima</option>
+                <option value="transformado">Transformado</option>
+              </select>
             </div>
 
             {/* Optional Details Section - Collapsible */}

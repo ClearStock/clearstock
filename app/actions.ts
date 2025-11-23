@@ -52,6 +52,8 @@ export async function createCategory(formData: FormData) {
 
     const restaurant = await getRestaurantByTenantId(tenantId);
     const name = String(formData.get("name") ?? "").trim();
+    const tipoRaw = String(formData.get("tipo") ?? "mp").trim();
+    const tipo = (tipoRaw === "transformado" ? "transformado" : "mp") as "mp" | "transformado";
 
     if (!name) {
       return {
@@ -60,24 +62,26 @@ export async function createCategory(formData: FormData) {
       };
     }
 
-    // Check if category already exists for this restaurant
+    // Check if category already exists for this restaurant and tipo
     const existingCategory = await db.category.findFirst({
       where: {
         restaurantId: restaurant.id,
         name: name,
+        tipo: tipo,
       },
     });
 
     if (existingCategory) {
       return {
         success: false,
-        error: `A categoria "${name}" já existe.`,
+        error: `A categoria "${name}" já existe para ${tipo === "mp" ? "matérias-primas" : "transformados"}.`,
       };
     }
 
     await db.category.create({
       data: {
         name,
+        tipo,
         restaurantId: restaurant.id,
       },
     });
@@ -295,12 +299,13 @@ export async function createProductBatch(formData: FormData) {
     const quantityRaw = formData.get("quantity");
     const unitRaw = String(formData.get("unit") ?? "").trim();
     const expiryDateRaw = formData.get("expiryDate");
+    const tipoRaw = String(formData.get("tipo") ?? "mp").trim();
+    const tipo = (tipoRaw === "transformado" ? "transformado" : "mp") as "mp" | "transformado";
     const categoryIdRaw = formData.get("categoryId");
     const locationIdRaw = formData.get("locationId");
     const packagingTypeRaw = formData.get("packagingType");
     const sizeRaw = formData.get("size");
     const sizeUnitRaw = formData.get("sizeUnit");
-    const homemadeRaw = formData.get("homemade");
 
     if (!name || !quantityRaw || !expiryDateRaw) {
       return {
@@ -325,7 +330,6 @@ export async function createProductBatch(formData: FormData) {
     const sizeRawValue = sizeRaw && String(sizeRaw).trim() !== "" ? String(sizeRaw).trim() : null;
     const size = sizeRawValue && !isNaN(Number(sizeRawValue)) && Number(sizeRawValue) > 0 ? Number(sizeRawValue) : null;
     const sizeUnit = size && sizeUnitRaw && String(sizeUnitRaw).trim() !== "" ? String(sizeUnitRaw).trim() : null;
-    const homemade = homemadeRaw === "on" || homemadeRaw === "true" || String(homemadeRaw) === "true";
 
     await db.productBatch.create({
       data: {
@@ -333,6 +337,7 @@ export async function createProductBatch(formData: FormData) {
         quantity: isNaN(quantity) || quantity <= 0 ? 1 : quantity,
         unit,
         expiryDate,
+        tipo,
         restaurantId: restaurant.id,
         userId: user.id,
         categoryId: categoryIdRaw && String(categoryIdRaw).trim() !== "" ? String(categoryIdRaw) : null,
@@ -340,7 +345,6 @@ export async function createProductBatch(formData: FormData) {
         packagingType,
         size,
         sizeUnit,
-        homemade: homemade || false,
       },
     });
 
@@ -410,7 +414,6 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
     const sizeRawValue = sizeRaw && String(sizeRaw).trim() !== "" ? String(sizeRaw).trim() : null;
     const size = sizeRawValue && !isNaN(Number(sizeRawValue)) && Number(sizeRawValue) > 0 ? Number(sizeRawValue) : null;
     const sizeUnit = size && sizeUnitRaw && String(sizeUnitRaw).trim() !== "" ? String(sizeUnitRaw).trim() : null;
-    const homemade = homemadeRaw === "on" || homemadeRaw === "true" || String(homemadeRaw) === "true";
 
     await db.productBatch.update({
       where: { id: batchId },
@@ -419,12 +422,12 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
         quantity: isNaN(quantity) || quantity <= 0 ? 1 : quantity,
         unit,
         expiryDate,
+        tipo,
         categoryId,
         locationId,
         packagingType,
         size,
         sizeUnit,
-        homemade: homemade || false,
       },
     });
 

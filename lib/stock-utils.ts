@@ -14,10 +14,11 @@ export type BatchWithRelations = Omit<ProductBatch, "expiryDate" | "createdAt" |
   packagingType?: string | null;
   size?: number | null;
   sizeUnit?: string | null;
-  homemade?: boolean;
+  tipo?: "mp" | "transformado";
   category: (Omit<Category, "createdAt" | "updatedAt"> & {
     createdAt: Date | string;
     updatedAt: Date | string;
+    tipo?: "mp" | "transformado";
   }) | null;
   location: (Omit<Location, "createdAt" | "updatedAt"> & {
     createdAt: Date | string;
@@ -50,9 +51,14 @@ export function getBatchStatus(
 
     const daysToExpiry = differenceInCalendarDays(expiryDate, today);
 
+    // Use tipo-specific alert days
+    const batchTipo = (batch as any).tipo || "mp"; // Default to mp for backwards compatibility
+    const defaultUrgentDays = batchTipo === "transformado" 
+      ? (restaurant?.alertDaysBeforeExpiryTransformado ?? 1)
+      : (restaurant?.alertDaysBeforeExpiryMP ?? restaurant?.alertDaysBeforeExpiry ?? 3);
+
     const urgentDays =
-      batch.category?.alertDaysBeforeExpiry ??
-      (restaurant?.alertDaysBeforeExpiry ?? 3);
+      batch.category?.alertDaysBeforeExpiry ?? defaultUrgentDays;
 
     const warningDays =
       batch.category?.warningDaysBeforeExpiry ?? urgentDays;
