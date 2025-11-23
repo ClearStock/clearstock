@@ -404,7 +404,7 @@ export default function NewEntryForm({
               </div>
             )}
 
-            {/* Category - Full width */}
+            {/* Category - Full width, filtered by tipo */}
             <div className="space-y-2">
               <Label htmlFor="categoryId" className="text-sm md:text-base font-medium">
                 Categoria
@@ -421,11 +421,13 @@ export default function NewEntryForm({
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {categories
+                    .filter((cat) => (cat as any).tipo === formData.tipo)
+                    .map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
