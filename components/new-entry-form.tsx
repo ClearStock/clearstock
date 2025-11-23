@@ -144,6 +144,29 @@ export default function NewEntryForm({
             {/* Mobile-first: All fields stack vertically, full width on mobile */}
             {/* Desktop: Uses 2-column grid for better space utilization */}
             
+            {/* Product type - Full width */}
+            <div className="space-y-2">
+              <Label htmlFor="tipo" className="text-sm md:text-base font-medium">
+                Tipo de produto
+              </Label>
+              <Select
+                name="tipo"
+                value={formData.tipo}
+                onValueChange={(value: "mp" | "transformado") => {
+                  setFormData((prev) => ({ ...prev, tipo: value, categoryId: "", expiryDate: "", extraDays: "" }));
+                }}
+                disabled={isPending}
+              >
+                <SelectTrigger className="h-11 md:h-10 text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mp">Matéria-prima</SelectItem>
+                  <SelectItem value="transformado">Transformado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Product name - Full width */}
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm md:text-base font-medium">
