@@ -379,12 +379,13 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
     const quantityRaw = formData.get("quantity");
     const unitRaw = String(formData.get("unit") ?? "").trim();
     const expiryDateRaw = formData.get("expiryDate");
+    const tipoRaw = String(formData.get("tipo") ?? "mp").trim();
+    const tipo = (tipoRaw === "transformado" ? "transformado" : "mp") as "mp" | "transformado";
     const categoryIdRaw = formData.get("categoryId");
     const locationIdRaw = formData.get("locationId");
     const packagingTypeRaw = formData.get("packagingType");
     const sizeRaw = formData.get("size");
     const sizeUnitRaw = formData.get("sizeUnit");
-    const homemadeRaw = formData.get("homemade");
 
     if (!name || !quantityRaw || !expiryDateRaw) {
       throw new Error("Campos obrigatórios em falta");
