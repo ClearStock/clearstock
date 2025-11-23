@@ -28,11 +28,17 @@ export async function getRestaurantByTenantId(tenantId: RestaurantId) {
     data: {
       name: RESTAURANT_NAMES[tenantId],
       alertDaysBeforeExpiry: 3,
+      alertDaysBeforeExpiryMP: 3,
+      alertDaysBeforeExpiryTransformado: 1,
       categories: {
         create: [
-          { name: "Frescos" },
-          { name: "Congelados" },
-          { name: "Secos" },
+          // Matérias-primas
+          { name: "Frescos", tipo: "mp" },
+          { name: "Congelados", tipo: "mp" },
+          { name: "Secos", tipo: "mp" },
+          // Transformados
+          { name: "Salgados", tipo: "transformado" },
+          { name: "Sopas", tipo: "transformado" },
         ],
       },
       locations: {
@@ -68,11 +74,17 @@ export async function getRestaurant() {
     data: {
       name: "Meu Restaurante",
       alertDaysBeforeExpiry: 3,
+      alertDaysBeforeExpiryMP: 3,
+      alertDaysBeforeExpiryTransformado: 1,
       categories: {
         create: [
-          { name: "Frescos" },
-          { name: "Congelados" },
-          { name: "Secos" },
+          // Matérias-primas
+          { name: "Frescos", tipo: "mp" },
+          { name: "Congelados", tipo: "mp" },
+          { name: "Secos", tipo: "mp" },
+          // Transformados
+          { name: "Salgados", tipo: "transformado" },
+          { name: "Sopas", tipo: "transformado" },
         ],
       },
       locations: {
