@@ -412,12 +412,12 @@ export function StockViewSimple({
 
       {/* Mobile-first search bar - Full width with border-gray-300 styling */}
       <div className="relative w-full mb-4">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 md:h-5 md:w-5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 md:h-5 md:w-5 -translate-y-1/2 text-muted-foreground z-10" />
         <Input
           placeholder="Pesquisar produto..."
           value={searchQuery}
           onChange={(e) => updateCurrentFilters({ searchQuery: e.target.value })}
-          className="pl-9 md:pl-10 h-11 md:h-10 text-base border-gray-300 rounded-lg px-4 py-2 w-full"
+          className="pl-10 md:pl-10 pr-4 h-11 md:h-10 text-base border-gray-300 rounded-lg w-full"
         />
       </div>
 
