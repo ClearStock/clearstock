@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getRestaurantByTenantId } from "@/lib/data-access";
 import SettingsContent from "@/components/settings-content";
 import { AuthGuard } from "@/components/auth-guard";
+import { RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +16,12 @@ export default async function SettingsPage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
+  if (!restaurantId || !RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
     redirect("/acesso");
   }
 
   try {
-    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J");
+    const restaurant = await getRestaurantByTenantId(restaurantId as RestaurantId);
 
     return (
       <AuthGuard>

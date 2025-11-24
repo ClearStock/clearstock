@@ -3,7 +3,8 @@
  * Restaurant tenant system using localStorage
  */
 
-export type RestaurantId = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J";
+export const RESTAURANT_IDS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"] as const;
+export type RestaurantId = typeof RESTAURANT_IDS[number];
 
 const STORAGE_KEYS = {
   authenticated: "clearskok_authenticated",
@@ -24,6 +25,13 @@ export const PIN_TO_RESTAURANT: Record<string, RestaurantId> = {
   "8751": "H",
   "9861": "I",
   "1357": "J",
+  "2468": "K",
+  "3579": "L",
+  "4681": "M",
+  "5792": "N",
+  "6813": "O",
+  "7924": "P",
+  "8135": "Q",
 };
 
 /**
@@ -40,6 +48,18 @@ export const RESTAURANT_NAMES: Record<RestaurantId, string> = {
   H: "Restaurante H",
   I: "Restaurante I",
   J: "Restaurante J",
+  K: "Restaurante K",
+  L: "Restaurante L",
+  M: "Restaurante M",
+  N: "Restaurante N",
+  O: "Restaurante O",
+  P: "Restaurante P",
+  Q: "Restaurante Q",
+};
+
+const isRestaurantId = (value: string | null): value is RestaurantId => {
+  if (!value) return false;
+  return RESTAURANT_IDS.includes(value as RestaurantId);
 };
 
 /**
@@ -51,9 +71,7 @@ export function isAuthenticated(): boolean {
   const authenticated = localStorage.getItem(STORAGE_KEYS.authenticated);
   const restaurantId = localStorage.getItem(STORAGE_KEYS.restaurantId);
   
-  return authenticated === "true" && 
-         !!restaurantId && 
-         ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId);
+  return authenticated === "true" && isRestaurantId(restaurantId);
 }
 
 /**
@@ -64,8 +82,8 @@ export function getRestaurantId(): RestaurantId | null {
   
   const restaurantId = localStorage.getItem(STORAGE_KEYS.restaurantId);
   
-  if (restaurantId && ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
-    return restaurantId as RestaurantId;
+  if (isRestaurantId(restaurantId)) {
+    return restaurantId;
   }
   
   return null;

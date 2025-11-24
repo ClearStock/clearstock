@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getRestaurantByTenantId, getUser } from "@/lib/data-access";
-import { RESTAURANT_NAMES, type RestaurantId } from "@/lib/auth";
+import { RESTAURANT_NAMES, RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
 
 /**
  * Helper to get restaurantId from cookies in server actions
@@ -13,7 +13,7 @@ async function getRestaurantIdFromCookie(): Promise<RestaurantId | null> {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
   
-  if (restaurantId && ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
+  if (restaurantId && RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
     return restaurantId as RestaurantId;
   }
   

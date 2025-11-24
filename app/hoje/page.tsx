@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { AuthGuard } from "@/components/auth-guard";
 import DashboardContent from "@/components/dashboard-content";
+import { RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +15,13 @@ export default async function HojePage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
+  if (!restaurantId || !RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
     redirect("/acesso");
   }
 
   return (
     <AuthGuard>
-      <DashboardContent restaurantId={restaurantId as "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J"} />
+      <DashboardContent restaurantId={restaurantId as RestaurantId} />
     </AuthGuard>
   );
 }

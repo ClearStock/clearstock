@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getRestaurantByTenantId } from "@/lib/data-access";
+import { RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { StockViewWrapper } from "@/components/stock-view-wrapper";
 import { AuthGuard } from "@/components/auth-guard";
@@ -20,12 +21,12 @@ export default async function StockPage() {
   const cookieStore = await cookies();
   const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  if (!restaurantId || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(restaurantId)) {
+  if (!restaurantId || !RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
     redirect("/acesso");
   }
 
   try {
-    const restaurant = await getRestaurantByTenantId(restaurantId as "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J");
+    const restaurant = await getRestaurantByTenantId(restaurantId as RestaurantId);
 
     // Optimize query: select only needed fields to reduce payload size
     const batches = await db.productBatch.findMany({
