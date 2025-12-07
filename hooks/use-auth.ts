@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   isAuthenticated,
   getRestaurantId,
+  hasValidSession,
   setAuth,
   clearAuth,
   type RestaurantId,
@@ -13,6 +14,7 @@ import {
 /**
  * Hook to manage authentication state
  * Provides current auth status and restaurant ID
+ * Now checks for valid session first
  */
 export function useAuth() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -22,7 +24,10 @@ export function useAuth() {
   useEffect(() => {
     // Check auth status on mount and whenever storage changes
     const checkAuth = () => {
-      const isAuth = isAuthenticated();
+      // First check for valid session (7-day persistence)
+      const hasSession = hasValidSession();
+      // Fallback to old auth check for backward compatibility
+      const isAuth = hasSession || isAuthenticated();
       const restId = getRestaurantId();
       
       setAuthenticated(isAuth);

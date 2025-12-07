@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { updateSettings, createCategory, createLocation, updateCategoryAlertById, deleteCategoryById, deleteLocationById, updateRestaurantName } from "@/app/actions";
-import { Trash2 } from "lucide-react";
+import { Trash2, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { clearAuth } from "@/lib/auth";
 import type { Restaurant, Category, Location } from "@prisma/client";
 
 interface SettingsContentProps {
@@ -75,12 +76,40 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
     });
   };
 
+  const handleLogout = () => {
+    clearAuth();
+    toast.success("Sessão terminada com sucesso");
+    router.push("/acesso");
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       <PageHeader 
         title="Definições" 
         description="Gerir configurações do restaurante"
       />
+      
+      {/* Logout button */}
+      <Card>
+        <CardContent className="px-4 py-4 md:px-6 md:py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm md:text-base font-medium">Terminar sessão</h3>
+              <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                Termine a sessão atual e volte à página de acesso
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="general" className="w-full">
         {/* Mobile-first tabs: Full width, larger touch targets */}

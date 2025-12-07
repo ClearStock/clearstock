@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { validatePinAndLogin, getRestaurantNameByPin } from "@/app/actions";
-import { setAuth, PIN_TO_RESTAURANT, type RestaurantId } from "@/lib/auth";
+import { setAuth, PIN_TO_RESTAURANT, hasValidSession, normalizePIN, type RestaurantId } from "@/lib/auth";
 import { Lock } from "lucide-react";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 60 * 1000; // 60 seconds in milliseconds
 
 /**
  * Access page - PIN entry for restaurant authentication
@@ -19,13 +22,25 @@ export default function AccessPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
 
-  // Check if PIN has a restaurant name when PIN is 4 digits
+  // Check for valid session on mount
+  useEffect(() => {
+    if (hasValidSession()) {
+      router.push("/hoje");
+    }
+  }, [router]);
+
+  // Check if PIN has a restaurant name when PIN is 6 digits
   useEffect(() => {
     const checkRestaurantName = async () => {
-      if (pin.length === 4) {
+      if (pin.length === 6) {
         try {
-          const name = await getRestaurantNameByPin(pin);
+          // Try both 6-digit and normalized (4-digit padded) versions
+          const normalizedPin = normalizePIN(pin);
+          const name = await getRestaurantNameByPin(normalizedPin);
           setRestaurantName(name);
         } catch (error) {
           // Silently fail - this is just for display
@@ -40,22 +55,70 @@ export default function AccessPage() {
     return () => clearTimeout(timeoutId);
   }, [pin]);
 
+  // Handle lockout timer
+  useEffect(() => {
+    if (!isLocked) return;
+
+    const interval = setInterval(() => {
+      const timeLeft = Math.ceil(lockoutTimeLeft / 1000);
+      setLockoutTimeLeft((prev) => {
+        const newTime = prev - 1000;
+        if (newTime <= 0) {
+          setIsLocked(false);
+          setFailedAttempts(0);
+          return 0;
+        }
+        return newTime;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLocked, lockoutTimeLeft]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Check if locked out
+    if (isLocked) {
+      return;
+    }
+
+    // Validate PIN length
+    if (pin.length !== 6) {
+      setError("O PIN deve ter 6 dígitos.");
+      return;
+    }
+
     setIsSubmitting(true);
 
+    // Normalize PIN (handle 4-digit backward compatibility)
+    const normalizedPin = normalizePIN(pin);
+    
     // Validate PIN via server action
-    const result = await validatePinAndLogin(pin);
+    const result = await validatePinAndLogin(normalizedPin);
 
     if (!result.success) {
-      setError(result.error || "PIN inválido. Tente novamente.");
+      // Increment failed attempts
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        setIsLocked(true);
+        setLockoutTimeLeft(LOCKOUT_DURATION);
+        setError("Demasiadas tentativas. Tente novamente dentro de 1 minuto.");
+      } else {
+        setError("PIN inválido. Verifique e tente novamente.");
+      }
       setIsSubmitting(false);
       return;
     }
 
+    // Success - reset failed attempts
+    setFailedAttempts(0);
+
     // Get restaurant ID from PIN mapping for localStorage
-    const restaurantId = PIN_TO_RESTAURANT[pin.trim()] as RestaurantId | undefined;
+    const restaurantId = PIN_TO_RESTAURANT[normalizedPin] as RestaurantId | undefined;
     
     if (!restaurantId) {
       setError("PIN não está associado a um restaurante válido.");
@@ -63,8 +126,8 @@ export default function AccessPage() {
       return;
     }
 
-    // Set authentication in localStorage
-    setAuth(restaurantId);
+    // Set authentication in localStorage with session
+    setAuth(restaurantId, normalizedPin);
 
     // Small delay for better UX
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -79,7 +142,7 @@ export default function AccessPage() {
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ""); // Only numbers
-    if (value.length <= 4) {
+    if (value.length <= 6) {
       setPin(value);
       setError(null); // Clear error when user types
     }
@@ -95,7 +158,7 @@ export default function AccessPage() {
           </div>
           <CardTitle className="text-xl md:text-2xl font-bold">Acesso Clearstok</CardTitle>
           <CardDescription className="text-sm md:text-base">
-            Introduza o PIN do seu restaurante.
+            Introduza o PIN de 6 dígitos do seu restaurante.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -107,7 +170,7 @@ export default function AccessPage() {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="pin" className="text-sm font-medium">PIN</Label>
+              <Label htmlFor="pin" className="text-sm font-medium">PIN (6 dígitos)</Label>
               {/* Large PIN input for easy mobile entry */}
               <Input
                 id="pin"
@@ -116,11 +179,11 @@ export default function AccessPage() {
                 pattern="[0-9]*"
                 value={pin}
                 onChange={handlePinChange}
-                placeholder="0000"
-                maxLength={4}
+                placeholder="000000"
+                maxLength={6}
                 className="text-center text-2xl md:text-3xl tracking-widest h-14 md:h-16"
                 autoFocus
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLocked}
                 required
               />
             </div>
@@ -131,13 +194,19 @@ export default function AccessPage() {
               </div>
             )}
 
+            {isLocked && lockoutTimeLeft > 0 && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700 text-center">
+                Tente novamente em {Math.ceil(lockoutTimeLeft / 1000)} segundos.
+              </div>
+            )}
+
             {/* Full-width button with indigo styling */}
             <Button
               type="submit"
-              className="w-full bg-indigo-600 text-white rounded-lg py-3 px-4 shadow-md hover:bg-indigo-700 h-11 md:h-12 text-base md:text-lg font-semibold"
-              disabled={isSubmitting || pin.length !== 4}
+              className="w-full bg-indigo-600 text-white rounded-lg py-3 px-4 shadow-md hover:bg-indigo-700 h-11 md:h-12 text-base md:text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting || isLocked || pin.length !== 6}
             >
-              {isSubmitting ? "A verificar..." : "Entrar"}
+              {isSubmitting ? "A verificar..." : isLocked ? "Bloqueado" : "Entrar"}
             </Button>
           </form>
         </CardContent>

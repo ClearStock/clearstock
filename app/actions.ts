@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getRestaurantByTenantId, getUser, getRestaurantByPin } from "@/lib/data-access";
-import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, type RestaurantId } from "@/lib/auth";
+import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, normalizePIN, type RestaurantId } from "@/lib/auth";
 
 /**
  * Helper to get restaurantId from cookies in server actions
@@ -43,7 +43,9 @@ export async function updateSettings(formData: FormData) {
 export async function getRestaurantNameByPin(pin: string) {
   try {
     const trimmedPin = pin.trim();
-    const restaurant = await getRestaurantByPin(trimmedPin);
+    // Normalize PIN (handle 4-digit backward compatibility)
+    const normalizedPin = normalizePIN(trimmedPin);
+    const restaurant = await getRestaurantByPin(normalizedPin);
     return restaurant?.name || null;
   } catch (error) {
     console.error("Error getting restaurant name by PIN:", error);
@@ -55,8 +57,11 @@ export async function validatePinAndLogin(pin: string) {
   try {
     const trimmedPin = pin.trim();
     
+    // Normalize PIN (handle 4-digit backward compatibility)
+    const normalizedPin = normalizePIN(trimmedPin);
+    
     // Get restaurant by PIN
-    const restaurant = await getRestaurantByPin(trimmedPin);
+    const restaurant = await getRestaurantByPin(normalizedPin);
     
     if (!restaurant) {
       return {
@@ -66,7 +71,7 @@ export async function validatePinAndLogin(pin: string) {
     }
 
     // Get the tenant ID from PIN mapping (for cookie compatibility)
-    const tenantId = PIN_TO_RESTAURANT[trimmedPin];
+    const tenantId = PIN_TO_RESTAURANT[normalizedPin];
     
     if (!tenantId) {
       return {

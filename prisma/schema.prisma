@@ -21,6 +21,7 @@ model Restaurant {
   locations             Location[]
   productBatches        ProductBatch[]
   productTemplates      ProductTemplate[]
+  supportMessages       SupportMessage[]
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -131,4 +132,22 @@ model ProductBatch {
 
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+}
+
+enum SupportMessageType {
+  bug
+  suggestion
+  question
+  other
+}
+
+model SupportMessage {
+  id            String              @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id])
+  restaurantName String?
+  type          SupportMessageType
+  message       String
+  contact       String
+  createdAt     DateTime             @default(now())
 }

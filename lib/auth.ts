@@ -9,30 +9,44 @@ export type RestaurantId = typeof RESTAURANT_IDS[number];
 const STORAGE_KEYS = {
   authenticated: "clearskok_authenticated",
   restaurantId: "clearskok_restaurantId",
+  session: "clearskok_session",
 } as const;
 
 /**
- * PIN to RestaurantId mapping
+ * PIN to RestaurantId mapping (6-digit PINs)
+ * Old 4-digit PINs are padded with leading zeros
  */
 export const PIN_TO_RESTAURANT: Record<string, RestaurantId> = {
-  "1111": "A",
-  "2222": "B",
-  "3333": "C",
-  "4921": "D",
-  "5421": "E",
-  "6531": "F",
-  "7641": "G",
-  "8751": "H",
-  "9861": "I",
-  "1357": "J",
-  "2468": "K",
-  "3579": "L",
-  "4681": "M",
-  "5792": "N",
-  "6813": "O",
-  "7924": "P",
-  "8135": "Q",
+  "001111": "A", // was "1111"
+  "002222": "B", // was "2222"
+  "003333": "C", // was "3333"
+  "004921": "D", // was "4921"
+  "005421": "E", // was "5421"
+  "006531": "F", // was "6531"
+  "007641": "G", // was "7641"
+  "008751": "H", // was "8751"
+  "009861": "I", // was "9861"
+  "001357": "J", // was "1357"
+  "002468": "K", // was "2468"
+  "003579": "L", // was "3579"
+  "004681": "M", // was "4681"
+  "005792": "N", // was "5792"
+  "006813": "O", // was "6813"
+  "007924": "P", // was "7924"
+  "008135": "Q", // was "8135"
 };
+
+/**
+ * Helper to normalize PIN (pad 4-digit PINs to 6 digits for backward compatibility)
+ */
+export function normalizePIN(pin: string): string {
+  const trimmed = pin.trim();
+  // If it's 4 digits, pad with leading zeros
+  if (trimmed.length === 4 && /^\d{4}$/.test(trimmed)) {
+    return `00${trimmed}`;
+  }
+  return trimmed;
+}
 
 /**
  * RestaurantId to display name mapping
@@ -64,10 +78,17 @@ const isRestaurantId = (value: string | null): value is RestaurantId => {
 
 /**
  * Check if user is authenticated
+ * Now also checks for valid session (7-day persistence)
  */
 export function isAuthenticated(): boolean {
   if (typeof window === "undefined") return false;
   
+  // First check for valid session
+  if (hasValidSession()) {
+    return true;
+  }
+  
+  // Fallback to old auth check for backward compatibility
   const authenticated = localStorage.getItem(STORAGE_KEYS.authenticated);
   const restaurantId = localStorage.getItem(STORAGE_KEYS.restaurantId);
   
@@ -90,34 +111,99 @@ export function getRestaurantId(): RestaurantId | null {
 }
 
 /**
- * Set authentication and restaurant ID
+ * Session data structure
  */
-export function setAuth(restaurantId: RestaurantId): void {
+export interface SessionData {
+  pin: string;
+  restaurantId: RestaurantId;
+  expiresAt: number; // timestamp
+}
+
+/**
+ * Set authentication and restaurant ID with 7-day session
+ */
+export function setAuth(restaurantId: RestaurantId, pin: string): void {
   if (typeof window === "undefined") return;
   
   localStorage.setItem(STORAGE_KEYS.authenticated, "true");
   localStorage.setItem(STORAGE_KEYS.restaurantId, restaurantId);
+  
+  // Create session that expires in 7 days
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const session: SessionData = {
+    pin,
+    restaurantId,
+    expiresAt,
+  };
+  localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
 }
 
 /**
- * Clear authentication
+ * Clear authentication and session
  */
 export function clearAuth(): void {
   if (typeof window === "undefined") return;
   
   localStorage.removeItem(STORAGE_KEYS.authenticated);
   localStorage.removeItem(STORAGE_KEYS.restaurantId);
+  localStorage.removeItem(STORAGE_KEYS.session);
+}
+
+/**
+ * Get current session if valid
+ */
+export function getSession(): SessionData | null {
+  if (typeof window === "undefined") return null;
+  
+  try {
+    const sessionStr = localStorage.getItem(STORAGE_KEYS.session);
+    if (!sessionStr) return null;
+    
+    const session: SessionData = JSON.parse(sessionStr);
+    
+    // Check if session is still valid
+    if (session.expiresAt > Date.now()) {
+      return session;
+    }
+    
+    // Session expired, clear it
+    clearAuth();
+    return null;
+  } catch (error) {
+    console.error("Error parsing session:", error);
+    clearAuth();
+    return null;
+  }
+}
+
+/**
+ * Check if user has a valid session
+ */
+export function hasValidSession(): boolean {
+  return getSession() !== null;
 }
 
 /**
  * Validate PIN and return restaurant ID if valid
+ * PIN must be exactly 6 digits
  */
 export function validatePIN(pin: string): RestaurantId | null {
   const trimmedPin = pin.trim();
-  console.log("validatePIN called with:", trimmedPin);
-  console.log("Available PINs:", Object.keys(PIN_TO_RESTAURANT));
-  const restaurantId = PIN_TO_RESTAURANT[trimmedPin];
-  console.log("Found restaurantId:", restaurantId);
+  
+  // Must be exactly 6 digits
+  if (!/^\d{6}$/.test(trimmedPin)) {
+    return null;
+  }
+  
+  // Try direct lookup
+  let restaurantId = PIN_TO_RESTAURANT[trimmedPin];
+  
+  // If not found, try normalizing (for backward compatibility with 4-digit PINs)
+  if (!restaurantId) {
+    const normalized = normalizePIN(trimmedPin);
+    restaurantId = PIN_TO_RESTAURANT[normalized];
+  }
+  
   return restaurantId || null;
 }
 
