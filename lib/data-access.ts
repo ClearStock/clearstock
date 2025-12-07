@@ -1,42 +1,107 @@
 import { db } from "@/lib/db"
-import { RESTAURANT_NAMES, type RestaurantId } from "@/lib/auth"
+import { RESTAURANT_NAMES, PIN_TO_RESTAURANT, type RestaurantId } from "@/lib/auth"
+
+/**
+ * Get restaurant by PIN
+ */
+export async function getRestaurantByPin(pin: string) {
+  const trimmedPin = pin.trim();
+  const restaurant = await db.restaurant.findUnique({
+    where: { pin: trimmedPin },
+    include: {
+      categories: true,
+      locations: true,
+    },
+  });
+  return restaurant;
+}
 
 /**
  * Get or create restaurant by tenant ID (A, B, or C)
+ * This is used for backward compatibility with the cookie-based system
  */
 export async function getRestaurantByTenantId(tenantId: RestaurantId) {
-  // Try to find restaurant by tenantId (if exists) or by name
+  // Find the PIN for this tenant ID
+  const pin = Object.entries(PIN_TO_RESTAURANT).find(
+    ([_, id]) => id === tenantId
+  )?.[0];
+
+  if (pin) {
+    // Try to find restaurant by PIN first
+    let restaurant = await db.restaurant.findUnique({
+      where: { pin },
+      include: {
+        categories: true,
+        locations: true,
+      },
+    });
+
+    if (restaurant) return restaurant;
+
+    // Create restaurant if it doesn't exist
+    return await db.restaurant.create({
+      data: {
+        pin,
+        name: RESTAURANT_NAMES[tenantId],
+        alertDaysBeforeExpiry: 3,
+        alertDaysBeforeExpiryMP: 3,
+        alertDaysBeforeExpiryTransformado: 1,
+        categories: {
+          create: [
+            // Matérias-primas
+            { name: "Frescos", tipo: "mp" },
+            { name: "Congelados", tipo: "mp" },
+            { name: "Secos", tipo: "mp" },
+            // Transformados
+            { name: "Salgados", tipo: "transformado" },
+            { name: "Sopas", tipo: "transformado" },
+          ],
+        },
+        locations: {
+          create: [
+            { name: "Frigorífico 1" },
+            { name: "Despensa" },
+            { name: "Arca" },
+          ],
+        },
+      },
+      include: {
+        categories: true,
+        locations: true,
+      },
+    });
+  }
+
+  // Fallback: try to find by name (for backward compatibility)
   let restaurant = await db.restaurant.findFirst({
     where: {
-      OR: [
-        // If tenantId field exists in schema
-        // { tenantId },
-        // Fallback to name matching
-        { name: RESTAURANT_NAMES[tenantId] },
-      ],
+      name: RESTAURANT_NAMES[tenantId],
     },
     include: {
       categories: true,
       locations: true,
     },
-  })
+  });
 
-  if (restaurant) return restaurant
+  if (restaurant) return restaurant;
 
-  // Create restaurant if it doesn't exist
+  // Last resort: create with a default PIN
+  const defaultPin = Object.keys(PIN_TO_RESTAURANT).find(
+    (p) => PIN_TO_RESTAURANT[p] === tenantId
+  ) || "0000";
+
   return await db.restaurant.create({
     data: {
+      pin: defaultPin,
       name: RESTAURANT_NAMES[tenantId],
       alertDaysBeforeExpiry: 3,
       alertDaysBeforeExpiryMP: 3,
       alertDaysBeforeExpiryTransformado: 1,
       categories: {
         create: [
-          // Matérias-primas
           { name: "Frescos", tipo: "mp" },
           { name: "Congelados", tipo: "mp" },
           { name: "Secos", tipo: "mp" },
-          // Transformados
           { name: "Salgados", tipo: "transformado" },
           { name: "Sopas", tipo: "transformado" },
         ],
@@ -53,7 +118,7 @@ export async function getRestaurantByTenantId(tenantId: RestaurantId) {
       categories: true,
       locations: true,
     },
-  })
+  });
 }
 
 /**
@@ -72,6 +137,7 @@ export async function getRestaurant() {
 
   return await db.restaurant.create({
     data: {
+      pin: "0000", // Default PIN for legacy function
       name: "Meu Restaurante",
       alertDaysBeforeExpiry: 3,
       alertDaysBeforeExpiryMP: 3,

@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getRestaurantByTenantId, getUser } from "@/lib/data-access";
-import { RESTAURANT_NAMES, RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
+import { getRestaurantByTenantId, getUser, getRestaurantByPin } from "@/lib/data-access";
+import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, type RestaurantId } from "@/lib/auth";
 
 /**
  * Helper to get restaurantId from cookies in server actions
@@ -38,6 +38,115 @@ export async function updateSettings(formData: FormData) {
 
   revalidatePath("/definicoes", "page");
   revalidatePath("/settings", "page");
+}
+
+export async function getRestaurantNameByPin(pin: string) {
+  try {
+    const trimmedPin = pin.trim();
+    const restaurant = await getRestaurantByPin(trimmedPin);
+    return restaurant?.name || null;
+  } catch (error) {
+    console.error("Error getting restaurant name by PIN:", error);
+    return null;
+  }
+}
+
+export async function validatePinAndLogin(pin: string) {
+  try {
+    const trimmedPin = pin.trim();
+    
+    // Get restaurant by PIN
+    const restaurant = await getRestaurantByPin(trimmedPin);
+    
+    if (!restaurant) {
+      return {
+        success: false,
+        error: "PIN inválido. Tente novamente.",
+      };
+    }
+
+    // Get the tenant ID from PIN mapping (for cookie compatibility)
+    const tenantId = PIN_TO_RESTAURANT[trimmedPin];
+    
+    if (!tenantId) {
+      return {
+        success: false,
+        error: "PIN não está associado a um restaurante válido.",
+      };
+    }
+
+    // Set cookie for server components
+    const cookieStore = await cookies();
+    cookieStore.set("clearskok_restaurantId", tenantId, {
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      sameSite: "lax",
+    });
+
+    return {
+      success: true,
+      restaurant: {
+        id: restaurant.id,
+        name: restaurant.name,
+        pin: restaurant.pin,
+      },
+      needsOnboarding: !restaurant.name,
+    };
+  } catch (error) {
+    console.error("Error validating PIN:", error);
+    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido ao validar PIN.";
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
+export async function updateRestaurantName(formData: FormData) {
+  try {
+    const tenantId = await getRestaurantIdFromCookie();
+    if (!tenantId) {
+      return {
+        success: false,
+        error: "Não autenticado. Por favor, faça login novamente.",
+      };
+    }
+
+    const restaurant = await getRestaurantByTenantId(tenantId);
+    const name = String(formData.get("name") ?? "").trim();
+
+    if (!name) {
+      return {
+        success: false,
+        error: "Por favor, forneça um nome para o restaurante.",
+      };
+    }
+
+    await db.restaurant.update({
+      where: { id: restaurant.id },
+      data: {
+        name,
+      },
+    });
+
+    revalidatePath("/onboarding", "page");
+    revalidatePath("/definicoes", "page");
+    revalidatePath("/settings", "page");
+    revalidatePath("/hoje", "page");
+    revalidatePath("/dashboard", "page");
+
+    return {
+      success: true,
+      message: `Nome do restaurante atualizado para "${name}"!`,
+    };
+  } catch (error) {
+    console.error("Error updating restaurant name:", error);
+    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido ao atualizar nome do restaurante.";
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
 }
 
 export async function createCategory(formData: FormData) {

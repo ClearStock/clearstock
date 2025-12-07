@@ -1,25 +1,32 @@
-"use client";
-
-import { usePathname } from "next/navigation";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { MainNav } from "@/components/main-nav";
+import { getRestaurantByTenantId } from "@/lib/data-access";
+import { RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
+import { ConditionalNavClient } from "@/components/conditional-nav-client";
 
 /**
- * Conditionally renders MainNav only on authenticated pages
+ * Server component that conditionally renders MainNav only on authenticated pages
  * Hides navbar on landing page (/) and access page (/acesso)
  */
-export function ConditionalNav() {
-  const pathname = usePathname();
+export async function ConditionalNav() {
+  // Get pathname from headers (we'll use a client component for this)
+  // For now, we'll fetch restaurant data if authenticated
+  const cookieStore = await cookies();
+  const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
 
-  // Public routes where navbar should NOT be shown
-  const publicRoutes = ["/", "/acesso"];
-
-  // Don't show navbar on public routes
-  if (publicRoutes.includes(pathname)) {
-    return null;
+  // If not authenticated, don't show nav (client component will handle route checking)
+  if (!restaurantId || !RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
+    return <ConditionalNavClient restaurantName={null} />;
   }
 
-  // Show navbar on all other routes (protected routes)
-  // The server-side AuthGuard will redirect if not authenticated
-  return <MainNav />;
+  // Fetch restaurant to get name
+  try {
+    const restaurant = await getRestaurantByTenantId(restaurantId as RestaurantId);
+    return <ConditionalNavClient restaurantName={restaurant.name} />;
+  } catch (error) {
+    console.error("Error fetching restaurant for nav:", error);
+    return <ConditionalNavClient restaurantName={null} />;
+  }
 }
 

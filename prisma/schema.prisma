@@ -10,7 +10,8 @@ datasource db {
 
 model Restaurant {
   id                    String   @id @default(cuid())
-  name                  String
+  pin                   String   @unique
+  name                  String?
   alertDaysBeforeExpiry Int      @default(3)
   alertDaysBeforeExpiryMP Int    @default(3)
   alertDaysBeforeExpiryTransformado Int @default(1)

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { validatePIN, setAuth, type RestaurantId } from "@/lib/auth";
+import { validatePinAndLogin, getRestaurantNameByPin } from "@/app/actions";
+import { setAuth, PIN_TO_RESTAURANT, type RestaurantId } from "@/lib/auth";
 import { Lock } from "lucide-react";
 
 /**
@@ -17,19 +18,47 @@ export default function AccessPage() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [restaurantName, setRestaurantName] = useState<string | null>(null);
+
+  // Check if PIN has a restaurant name when PIN is 4 digits
+  useEffect(() => {
+    const checkRestaurantName = async () => {
+      if (pin.length === 4) {
+        try {
+          const name = await getRestaurantNameByPin(pin);
+          setRestaurantName(name);
+        } catch (error) {
+          // Silently fail - this is just for display
+          setRestaurantName(null);
+        }
+      } else {
+        setRestaurantName(null);
+      }
+    };
+
+    const timeoutId = setTimeout(checkRestaurantName, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [pin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
-    // Validate PIN
-    console.log("Validating PIN:", pin, "Length:", pin.length);
-    const restaurantId = validatePIN(pin);
-    console.log("Validation result:", restaurantId);
+    // Validate PIN via server action
+    const result = await validatePinAndLogin(pin);
 
+    if (!result.success) {
+      setError(result.error || "PIN inválido. Tente novamente.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Get restaurant ID from PIN mapping for localStorage
+    const restaurantId = PIN_TO_RESTAURANT[pin.trim()] as RestaurantId | undefined;
+    
     if (!restaurantId) {
-      setError("PIN inválido. Tente novamente.");
+      setError("PIN não está associado a um restaurante válido.");
       setIsSubmitting(false);
       return;
     }
@@ -37,16 +66,15 @@ export default function AccessPage() {
     // Set authentication in localStorage
     setAuth(restaurantId);
 
-    // Set cookie for server components
-    const expires = new Date();
-    expires.setTime(expires.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    document.cookie = `clearskok_restaurantId=${restaurantId}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
-
     // Small delay for better UX
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Redirect to dashboard
-    router.push("/hoje");
+    // Redirect based on whether restaurant has a name
+    if (result.needsOnboarding) {
+      router.push("/onboarding");
+    } else {
+      router.push("/hoje");
+    }
   };
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,6 +99,12 @@ export default function AccessPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {restaurantName && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-700 text-center">
+              PIN associado a: <span className="font-semibold">{restaurantName}</span>
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="pin" className="text-sm font-medium">PIN</Label>

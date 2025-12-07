@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { updateSettings, createCategory, createLocation, updateCategoryAlertById, deleteCategoryById, deleteLocationById } from "@/app/actions";
+import { updateSettings, createCategory, createLocation, updateCategoryAlertById, deleteCategoryById, deleteLocationById, updateRestaurantName } from "@/app/actions";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Restaurant, Category, Location } from "@prisma/client";
@@ -107,6 +107,63 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
         
         {/* Tab: Geral - Mobile-first form */}
         <TabsContent value="general" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
+          {/* Restaurant Name Section */}
+          <Card>
+            <CardHeader className="px-4 pt-4 md:px-6 md:pt-6">
+              <CardTitle className="text-lg md:text-xl">Nome do restaurante</CardTitle>
+              <CardDescription className="text-sm md:text-base">
+                Altere o nome do seu restaurante
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
+              <form action={async (formData) => {
+                startTransition(async () => {
+                  try {
+                    const result = await updateRestaurantName(formData);
+                    if (result?.success) {
+                      toast.success(result.message || "Nome do restaurante atualizado com sucesso!");
+                      router.refresh();
+                    } else {
+                      toast.error("Erro ao atualizar nome", {
+                        description: result?.error || "Ocorreu um erro ao atualizar o nome do restaurante.",
+                      });
+                    }
+                  } catch (error) {
+                    console.error("Unexpected error:", error);
+                    toast.error("Erro inesperado", {
+                      description: "Ocorreu um erro inesperado. Por favor, tente novamente.",
+                    });
+                  }
+                });
+              }} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="restaurantName" className="text-sm md:text-base font-medium">
+                    Nome do restaurante
+                  </label>
+                  <Input
+                    id="restaurantName"
+                    name="name"
+                    type="text"
+                    defaultValue={restaurant.name || ""}
+                    placeholder="Ex: Café Morais"
+                    className="w-full h-11 md:h-10 text-base"
+                    maxLength={100}
+                    required
+                    disabled={isPending}
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full md:w-auto bg-indigo-600 text-white rounded-lg py-3 px-4 shadow-md hover:bg-indigo-700" 
+                  size="lg"
+                  disabled={isPending}
+                >
+                  {isPending ? "A guardar..." : "Guardar"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="px-4 pt-4 md:px-6 md:pt-6">
               <CardTitle className="text-lg md:text-xl">Avisos de Validade</CardTitle>

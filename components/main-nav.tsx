@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { LayoutDashboard, PlusCircle, Package, Settings, Menu } from "lucide-react"
 import {
   Sheet,
@@ -12,7 +13,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 
-export function MainNav() {
+interface MainNavProps {
+  restaurantName?: string | null;
+}
+
+export function MainNav({ restaurantName }: MainNavProps) {
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
 
@@ -90,6 +95,13 @@ export function MainNav() {
             >
               <span className="text-lg font-bold">Clearstok</span>
             </Link>
+            {restaurantName && (
+              <div className="px-3 pb-2">
+                <Badge variant="outline" className="text-xs font-normal border-indigo-200 text-indigo-700 bg-indigo-50">
+                  {restaurantName}
+                </Badge>
+              </div>
+            )}
             <nav className="flex flex-col space-y-1 mt-2">
               {routes.map((route) => (
                 <Link
@@ -120,6 +132,14 @@ export function MainNav() {
           <div className="w-full flex-1 md:w-auto md:flex-none">
             {/* Search could go here */}
           </div>
+          {/* Restaurant name badge - only show if name exists */}
+          {restaurantName && (
+            <div className="hidden md:flex items-center">
+              <Badge variant="outline" className="text-xs font-normal border-indigo-200 text-indigo-700 bg-indigo-50">
+                {restaurantName}
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
     </header>
