@@ -1,7 +1,8 @@
 import { Resend } from "resend";
 
 const ADMIN_EMAIL = process.env.SUPPORT_ADMIN_EMAIL || "clear.stock.pt@gmail.com";
-const EMAIL_FROM = process.env.EMAIL_FROM || "no-reply@clearstok.app";
+// Resend requires a verified domain. Use onboarding@resend.dev for testing or configure your own domain
+const EMAIL_FROM = process.env.EMAIL_FROM || "onboarding@resend.dev";
 
 // Lazy initialization to avoid build-time errors
 function getResend() {
@@ -53,17 +54,36 @@ Mensagem:
 ${data.message}
 `.trim();
 
+  console.log(`[EMAIL] Attempting to send support email:`);
+  console.log(`[EMAIL] From: ${EMAIL_FROM}`);
+  console.log(`[EMAIL] To: ${ADMIN_EMAIL}`);
+  console.log(`[EMAIL] Subject: ${subject}`);
+
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: EMAIL_FROM,
       to: ADMIN_EMAIL,
       subject,
       text: emailBody,
     });
 
-    console.log(`Support email sent to ${ADMIN_EMAIL}`);
-  } catch (error) {
-    console.error("Error sending support email:", error);
+    console.log(`[EMAIL] ✅ Support email sent successfully to ${ADMIN_EMAIL}`);
+    console.log(`[EMAIL] Resend response:`, JSON.stringify(result, null, 2));
+    
+    return result;
+  } catch (error: any) {
+    console.error("[EMAIL] ❌ Error sending support email:");
+    console.error("[EMAIL] Error details:", error);
+    
+    if (error?.message) {
+      console.error("[EMAIL] Error message:", error.message);
+    }
+    
+    if (error?.response) {
+      console.error("[EMAIL] Error response:", JSON.stringify(error.response, null, 2));
+    }
+    
+    // Re-throw to allow caller to handle
     throw error;
   }
 }

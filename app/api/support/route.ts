@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Send email to admin
+    let emailSent = false;
     try {
+      console.log("[API] Attempting to send support email...");
       await sendSupportEmail({
         restaurantName: restaurant.name,
         restaurantPin: restaurant.pin,
@@ -85,9 +87,14 @@ export async function POST(request: NextRequest) {
         message: message.trim(),
         contact: contact.trim(),
       });
-    } catch (emailError) {
+      emailSent = true;
+      console.log("[API] ✅ Support email sent successfully");
+    } catch (emailError: any) {
       // Log email error but don't fail the request
-      console.error("Error sending support email:", emailError);
+      console.error("[API] ❌ Error sending support email:");
+      console.error("[API] Error type:", emailError?.constructor?.name);
+      console.error("[API] Error message:", emailError?.message);
+      console.error("[API] Full error:", JSON.stringify(emailError, null, 2));
       // Continue - message is saved in DB even if email fails
     }
 
