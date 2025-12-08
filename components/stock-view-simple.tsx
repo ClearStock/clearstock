@@ -293,7 +293,8 @@ export function StockViewSimple({
   });
 
   // Agrupar produtos por nome (case-insensitive) para Stock Geral (excluindo expirados)
-  // Só calcula quando o tab está ativo e os dados mudaram
+  // Calcula sempre, mas só retorna resultado quando activeTab === "general"
+  // Usa uma estratégia de cache para evitar recálculos desnecessários
   const generalStock = useMemo(() => {
     // Early return se não estiver no tab general
     if (activeTab !== "general") return {};
@@ -308,9 +309,7 @@ export function StockViewSimple({
       console.error("Error aggregating general stock:", error);
       return {};
     }
-    // Remover activeTab das dependências - só recalcula quando batches ou restaurant mudam
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batches, restaurant]);
+  }, [batches, restaurant, activeTab]);
 
   // Ordenar produtos do Stock Geral alfabeticamente - só quando generalStock mudar
   const generalStockProductNames = useMemo(() => {
