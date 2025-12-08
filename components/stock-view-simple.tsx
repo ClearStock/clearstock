@@ -329,7 +329,18 @@ export function StockViewSimple({
 
   // Handler para navegar ao clicar num produto no Stock Geral - memoizado
   const handleGeneralStockProductClick = useCallback((productName: string) => {
-    router.push(`/stock?search=${encodeURIComponent(productName)}`);
+    // Mudar para o tab "Todos" primeiro
+    setActiveTab("all");
+    // Atualizar o filtro de pesquisa no tab "all"
+    setFilters(prev => ({
+      ...prev,
+      all: {
+        ...prev.all,
+        searchQuery: productName,
+      },
+    }));
+    // Navegar com replace para evitar adicionar ao histórico
+    router.replace(`/stock?search=${encodeURIComponent(productName)}`, { scroll: false });
   }, [router]);
 
   // Map status to badge type
