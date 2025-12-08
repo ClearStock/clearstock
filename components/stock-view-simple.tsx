@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useTransition, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useTransition, useCallback, useRef, memo } from "react";
 import { useRouter } from "next/navigation";
 import { deleteProductBatch, adjustBatchQuantity } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,55 @@ import { getBatchStatus, groupBatchesByCategory, aggregateBatchesByProductNameCa
 import { toast } from "sonner";
 import type { Category, Location, Restaurant } from "@prisma/client";
 import type { BatchWithRelations } from "@/lib/stock-utils";
+
+// Componente memoizado para items do Stock Geral - melhora performance no mobile
+const GeneralStockItem = memo(function GeneralStockItem({
+  product,
+  onClick,
+}: {
+  product: {
+    displayName: string;
+    totalQuantity: number;
+    unit: string;
+    locations: string[];
+  };
+  onClick: (name: string) => void;
+}) {
+  return (
+    <div
+      onClick={() => onClick(product.displayName)}
+      className="bg-white rounded-xl shadow-sm p-4 mb-3 border border-gray-100 hover:shadow-md hover:border-indigo-300 transition-shadow cursor-pointer touch-manipulation"
+      style={{ willChange: "transform" }}
+    >
+      {/* Product name */}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h3 className="text-base md:text-lg font-semibold text-foreground">
+          {product.displayName}
+        </h3>
+      </div>
+
+      {/* Product details */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium text-foreground">
+            {product.totalQuantity || 0} {product.unit || "un"}
+          </span>
+        </div>
+        {product.locations && product.locations.length > 0 && (
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">
+              {product.locations.length === 1
+                ? product.locations[0]
+                : `${product.locations.length} localizações`}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
 
 interface StockViewSimpleProps {
   batches: BatchWithRelations[];
@@ -311,16 +360,22 @@ export function StockViewSimple({
   const generalStock = activeTab === "general" ? generalStockComputed : {};
 
   // Ordenar produtos do Stock Geral alfabeticamente - só quando generalStock mudar
+  // Otimizado para performance: cache de nomes ordenados
   const generalStockProductNames = useMemo(() => {
     if (activeTab !== "general") return [];
     if (!generalStockComputed || Object.keys(generalStockComputed).length === 0) return [];
     try {
-      return Object.keys(generalStockComputed).sort((a, b) => {
-        const productA = generalStockComputed[a];
-        const productB = generalStockComputed[b];
-        if (!productA || !productB) return 0;
-        return (productA.displayName || "").localeCompare(productB.displayName || "");
-      });
+      // Criar array de nomes com displayName para ordenação mais eficiente
+      const namesWithDisplay = Object.entries(generalStockComputed).map(([key, product]) => ({
+        key,
+        displayName: product.displayName || "",
+      }));
+      
+      // Ordenar apenas uma vez
+      namesWithDisplay.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      
+      // Retornar apenas as keys ordenadas
+      return namesWithDisplay.map(item => item.key);
     } catch (error) {
       console.error("Error sorting general stock products:", error);
       return [];
@@ -548,38 +603,11 @@ export function StockViewSimple({
               }
               
               return (
-                <div
+                <GeneralStockItem
                   key={normalizedName}
-                  onClick={() => handleGeneralStockProductClick(product.displayName)}
-                  className="bg-white rounded-xl shadow-sm p-4 mb-3 border border-gray-100 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
-                >
-                  {/* Product name */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <h3 className="text-base md:text-lg font-semibold text-foreground">
-                      {product.displayName}
-                    </h3>
-                  </div>
-
-                  {/* Product details */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 flex-shrink-0" />
-                      <span className="font-medium text-foreground">
-                        {product.totalQuantity || 0} {product.unit || "un"}
-                      </span>
-                    </div>
-                    {product.locations && product.locations.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">
-                          {product.locations.length === 1
-                            ? product.locations[0]
-                            : `${product.locations.length} localizações`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  product={product}
+                  onClick={handleGeneralStockProductClick}
+                />
               );
             })}
           </div>

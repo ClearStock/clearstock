@@ -242,14 +242,28 @@ export function aggregateBatchesByProductNameCaseInsensitive(
       }
     > = {};
 
+    // Otimização: verificar expiração diretamente sem chamar getBatchStatus para cada batch
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalizar para início do dia
+
     for (const batch of batches) {
       if (!batch || !batch.name) continue;
 
       try {
-        // Verificar se está expirado
-        const status = getBatchStatus(batch, restaurant);
-        if (status.status === "expired") {
-          continue; // Ignorar produtos expirados
+        // Verificar se está expirado diretamente (mais rápido que getBatchStatus)
+        const expiryDate = typeof batch.expiryDate === "string" 
+          ? new Date(batch.expiryDate) 
+          : batch.expiryDate;
+        
+        if (isNaN(expiryDate.getTime())) continue; // Skip se data inválida
+        
+        // Normalizar data para comparação
+        const expiryDateNormalized = new Date(expiryDate);
+        expiryDateNormalized.setHours(0, 0, 0, 0);
+        
+        // Se expirado, ignorar
+        if (expiryDateNormalized < today) {
+          continue;
         }
 
         // Normalizar nome para agrupamento (case-insensitive)
@@ -285,7 +299,7 @@ export function aggregateBatchesByProductNameCaseInsensitive(
       }
     }
 
-    // Converter Set de localizações para array
+    // Converter Set de localizações para array (otimizado)
     const result: Record<
       string,
       {
@@ -298,11 +312,15 @@ export function aggregateBatchesByProductNameCaseInsensitive(
     > = {};
 
     for (const [normalizedName, data] of Object.entries(aggregated)) {
+      // Converter Set para array e ordenar (mais eficiente que Array.from().sort())
+      const locationsArray = Array.from(data.locations);
+      locationsArray.sort(); // Sort in-place é mais eficiente
+      
       result[normalizedName] = {
         displayName: data.displayName,
         totalQuantity: data.totalQuantity,
         unit: data.unit,
-        locations: Array.from(data.locations).sort(),
+        locations: locationsArray,
         batches: data.batches,
       };
     }
