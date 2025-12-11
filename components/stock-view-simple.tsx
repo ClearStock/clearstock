@@ -242,7 +242,9 @@ export function StockViewSimple({
   }
 
   // Update URL when status filter changes (optional but useful for sharing/bookmarking)
+  // CRITICAL FIX: router is stable, no need to memoize or include in deps
   const handleStatusFilterChange = (filter: StatusFilter) => {
+    console.log("[StockViewSimple] Status filter changed:", filter);
     updateCurrentFilters({ statusFilter: filter });
     if (filter === "all") {
       router.push("/stock", { scroll: false });
