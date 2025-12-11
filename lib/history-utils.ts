@@ -75,6 +75,7 @@ export interface ProductSummary {
 export interface AggregatedProducts {
   withEntryData: ProductSummary[]; // Products with ENTRY > 0
   withoutEntryData: ProductSummary[]; // Products with only WASTE (old stock being cleared)
+  productsWithMultipleUnits: string[]; // Product names that appear in multiple units (for warning)
 }
 
 export function aggregateEventsByProduct(
@@ -116,6 +117,19 @@ export function aggregateEventsByProduct(
 
   const withEntryData: ProductSummary[] = [];
   const withoutEntryData: ProductSummary[] = [];
+  
+  // Track products that appear in multiple units
+  const productsByNormalizedName = new Map<string, Set<string>>();
+  for (const [key] of productMap.entries()) {
+    const [normalizedName, unit] = key.split("|");
+    if (!productsByNormalizedName.has(normalizedName)) {
+      productsByNormalizedName.set(normalizedName, new Set());
+    }
+    productsByNormalizedName.get(normalizedName)!.add(unit);
+  }
+  const productsWithMultipleUnits = Array.from(productsByNormalizedName.entries())
+    .filter(([_, units]) => units.size > 1)
+    .map(([name]) => name);
 
   // Convert to summaries
   for (const [key, data] of productMap.entries()) {
@@ -169,7 +183,7 @@ export function aggregateEventsByProduct(
   // Sort products without entry data by name
   withoutEntryData.sort((a, b) => a.productName.localeCompare(b.productName));
 
-  return { withEntryData, withoutEntryData };
+  return { withEntryData, withoutEntryData, productsWithMultipleUnits };
 }
 
 /**
@@ -219,49 +233,62 @@ function generateSuggestion(
 
 /**
  * Calculate monthly summary with robust handling
+ * IMPORTANT: Does NOT mix different units - calculates totals per unit separately
  */
 export interface MonthlySummary {
-  totalOrdered: number;
-  totalWasted: number;
-  wastePercentage: number | null; // null when percentage doesn't make sense
-  unit: string;
+  totalsByUnit: Array<{ unit: string; ordered: number; wasted: number }>; // Totals grouped by unit
+  wastePercentage: number | null; // null when percentage doesn't make sense or units are mixed
   hasEnoughData: boolean; // true if we have meaningful data
+  hasMixedUnits: boolean; // true if there are multiple different units
 }
 
 export function calculateMonthlySummary(
   events: Array<{ type: "ENTRY" | "WASTE"; quantity: number; unit: string }>
 ): MonthlySummary {
-  let totalEntry = 0;
-  let totalWaste = 0;
-  const units = new Set<string>();
+  // Group totals by unit to avoid mixing kg with un, etc.
+  const totalsByUnitMap = new Map<string, { ordered: number; wasted: number }>();
 
   for (const event of events) {
-    units.add(event.unit);
+    const unit = event.unit || "un"; // Default to "un" if unit is missing
+    
+    if (!totalsByUnitMap.has(unit)) {
+      totalsByUnitMap.set(unit, { ordered: 0, wasted: 0 });
+    }
+    
+    const totals = totalsByUnitMap.get(unit)!;
     if (event.type === "ENTRY") {
-      totalEntry += event.quantity;
+      totals.ordered += event.quantity;
     } else {
-      totalWaste += event.quantity;
+      totals.wasted += event.quantity;
     }
   }
 
-  const unit = units.size === 1 ? Array.from(units)[0] : "misto";
-  const hasEnoughData = totalEntry > 0;
+  const totalsByUnit = Array.from(totalsByUnitMap.entries())
+    .map(([unit, totals]) => ({ unit, ...totals }))
+    .sort((a, b) => a.unit.localeCompare(b.unit));
 
-  // Calculate waste percentage only when it makes sense
+  const hasMixedUnits = totalsByUnit.length > 1;
+  const hasEnoughData = totalsByUnit.some(t => t.ordered > 0);
+
+  // Calculate waste percentage only when:
+  // 1. We have enough data
+  // 2. There's only ONE unit (to avoid mixing units)
   let wastePercentage: number | null = null;
-  if (hasEnoughData && totalEntry > 0) {
-    const percentage = (totalWaste / totalEntry) * 100;
-    // Only set percentage if it's reasonable (avoid absurd values)
-    if (percentage <= 200) {
-      wastePercentage = percentage;
+  if (hasEnoughData && !hasMixedUnits && totalsByUnit.length === 1) {
+    const { ordered, wasted } = totalsByUnit[0];
+    if (ordered > 0) {
+      const percentage = (wasted / ordered) * 100;
+      // Only set percentage if it's reasonable (avoid absurd values)
+      if (percentage <= 200) {
+        wastePercentage = percentage;
+      }
     }
   }
 
   return {
-    totalOrdered: totalEntry,
-    totalWasted: totalWaste,
+    totalsByUnit,
     wastePercentage,
-    unit,
     hasEnoughData,
+    hasMixedUnits,
   };
 }

@@ -88,7 +88,7 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
   }, [events]);
 
   // Calculate product summaries with normalized names
-  const { withEntryData, withoutEntryData } = useMemo(() => {
+  const { withEntryData, withoutEntryData, productsWithMultipleUnits } = useMemo(() => {
     return aggregateEventsByProduct(events);
   }, [events]);
 
@@ -136,12 +136,36 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                 <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {summary.totalOrdered.toFixed(1)} {summary.unit}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Total de entradas no mês
-                </p>
+                {summary.totalsByUnit.length === 0 ? (
+                  <>
+                    <div className="text-2xl font-bold">0</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Sem entradas no mês
+                    </p>
+                  </>
+                ) : summary.hasMixedUnits ? (
+                  <>
+                    <div className="space-y-1">
+                      {summary.totalsByUnit.map(({ unit, ordered }) => (
+                        <div key={unit} className="text-lg font-bold">
+                          {ordered.toFixed(1)} {unit}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total por unidade
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">
+                      {summary.totalsByUnit[0]?.ordered.toFixed(1) || "0"} {summary.totalsByUnit[0]?.unit || "un"}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total de entradas no mês
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -151,12 +175,36 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                 <AlertTriangle className="h-4 w-4 text-destructive" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-destructive">
-                  {summary.totalWasted.toFixed(1)} {summary.unit}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Total de desperdício no mês
-                </p>
+                {summary.totalsByUnit.length === 0 ? (
+                  <>
+                    <div className="text-2xl font-bold text-destructive">0</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Sem desperdício no mês
+                    </p>
+                  </>
+                ) : summary.hasMixedUnits ? (
+                  <>
+                    <div className="space-y-1">
+                      {summary.totalsByUnit.map(({ unit, wasted }) => (
+                        <div key={unit} className="text-lg font-bold text-destructive">
+                          {wasted.toFixed(1)} {unit}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total por unidade
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-destructive">
+                      {summary.totalsByUnit[0]?.wasted.toFixed(1) || "0"} {summary.totalsByUnit[0]?.unit || "un"}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total de desperdício no mês
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -170,7 +218,7 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                 )}
               </CardHeader>
               <CardContent>
-                {summary.hasEnoughData && summary.wastePercentage !== null ? (
+                {summary.hasEnoughData && summary.wastePercentage !== null && !summary.hasMixedUnits ? (
                   <>
                     <div className="text-2xl font-bold">
                       {summary.wastePercentage.toFixed(1)}%
@@ -182,10 +230,14 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                 ) : (
                   <>
                     <div className="text-sm font-medium text-muted-foreground">
-                      Ainda sem dados suficientes
+                      {summary.hasMixedUnits
+                        ? "Unidades mistas"
+                        : "Ainda sem dados suficientes"}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {summary.totalOrdered === 0
+                      {summary.hasMixedUnits
+                        ? "Não é possível calcular % com unidades diferentes"
+                        : summary.totalsByUnit.length === 0
                         ? "Sem entradas para calcular"
                         : "Dados insuficientes para percentagem"}
                     </p>
@@ -227,7 +279,9 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                           <tbody>
                             {withEntryData.map((product) => (
                               <tr key={`${product.normalizedName}-${product.unit}`} className="border-b hover:bg-gray-50">
-                                <td className="py-3 px-2 font-medium">{product.productName}</td>
+                                <td className="py-3 px-2 font-medium">
+                                  {product.productName} <span className="text-muted-foreground">— {product.unit}</span>
+                                </td>
                                 <td className="text-right py-3 px-2">
                                   {product.totalOrdered.toFixed(1)} {product.unit}
                                 </td>
@@ -288,7 +342,9 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                           <tbody>
                             {withoutEntryData.map((product) => (
                               <tr key={`${product.normalizedName}-${product.unit}`} className="border-b hover:bg-gray-50">
-                                <td className="py-3 px-2 font-medium">{product.productName}</td>
+                                <td className="py-3 px-2 font-medium">
+                                  {product.productName} <span className="text-muted-foreground">— {product.unit}</span>
+                                </td>
                                 <td className="text-right py-3 px-2 text-destructive">
                                   {product.totalWasted.toFixed(1)} {product.unit}
                                 </td>
@@ -302,6 +358,18 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Warning about products with multiple units */}
+              {productsWithMultipleUnits.length > 0 && (
+                <div className="mt-6 pt-6 border-t">
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                    <p className="text-sm text-orange-800">
+                      <strong>Nota:</strong> Alguns produtos aparecem em mais do que uma unidade (ex.: "{productsWithMultipleUnits[0]}" em diferentes unidades). 
+                      Isto pode enviesar a análise e talvez valha a pena uniformizar as unidades nas entradas.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
