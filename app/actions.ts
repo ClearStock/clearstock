@@ -11,13 +11,86 @@ import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, normalizePIN, type
  */
 async function getRestaurantIdFromCookie(): Promise<RestaurantId | null> {
   const cookieStore = await cookies();
-  const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
+  const restaurantId = cookieStore.get("clearstock_restaurantId")?.value;
   
   if (restaurantId && RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
     return restaurantId as RestaurantId;
   }
   
   return null;
+}
+
+/**
+ * Check for expired batches and register WASTE events for them
+ * This function should be called periodically or when loading stock/history pages
+ */
+export async function checkAndRegisterExpiredBatches(restaurantId: string) {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+
+    // Find all ACTIVE batches that have expired
+    const expiredBatches = await db.productBatch.findMany({
+      where: {
+        restaurantId,
+        status: "ACTIVE",
+        expiryDate: {
+          lt: today, // expiryDate < today
+        },
+      },
+    });
+
+    if (expiredBatches.length === 0) {
+      return { registered: 0 };
+    }
+
+    let registeredCount = 0;
+
+    // For each expired batch, check if WASTE event already exists
+    // and register if it doesn't
+    for (const batch of expiredBatches) {
+      // Check if a WASTE event already exists for this specific batch
+      // Using batchId for precise tracking (if available) or fallback to product matching
+      const existingWasteEvent = await db.stockEvent.findFirst({
+        where: {
+          restaurantId: batch.restaurantId,
+          type: "WASTE",
+          batchId: batch.id, // Use batchId for precise tracking
+        },
+      });
+
+      // If no WASTE event exists, create one
+      if (!existingWasteEvent && batch.quantity > 0) {
+        try {
+          await db.stockEvent.create({
+            data: {
+              restaurantId: batch.restaurantId,
+              type: "WASTE",
+              productName: batch.name,
+              quantity: batch.quantity,
+              unit: batch.unit,
+              batchId: batch.id, // Link to the specific batch
+            },
+          });
+          registeredCount++;
+          console.log(`[checkAndRegisterExpiredBatches] Registered WASTE for expired batch:`, {
+            batchId: batch.id,
+            productName: batch.name,
+            quantity: batch.quantity,
+            unit: batch.unit,
+            expiryDate: batch.expiryDate.toISOString(),
+          });
+        } catch (eventError) {
+          console.error(`[checkAndRegisterExpiredBatches] Error creating WASTE event for batch ${batch.id}:`, eventError);
+        }
+      }
+    }
+
+    return { registered: registeredCount };
+  } catch (error) {
+    console.error("[checkAndRegisterExpiredBatches] Error checking expired batches:", error);
+    return { registered: 0, error: error instanceof Error ? error.message : "Unknown error" };
+  }
 }
 
 export async function updateSettings(formData: FormData) {
@@ -447,7 +520,15 @@ export async function createProductBatch(formData: FormData) {
 
     const finalQuantity = isNaN(quantity) || quantity <= 0 ? 1 : quantity;
     
-    await db.productBatch.create({
+    // Check if the product is already expired when being added
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    const expiryDateOnly = new Date(expiryDate);
+    expiryDateOnly.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    const isAlreadyExpired = expiryDateOnly < today;
+    
+    // Create the batch and get its ID
+    const createdBatch = await db.productBatch.create({
       data: {
         name,
         quantity: finalQuantity,
@@ -464,20 +545,33 @@ export async function createProductBatch(formData: FormData) {
       },
     });
 
-    // Register ENTRY event for history tracking
+    // Register event for history tracking
+    // If product is already expired when added, register as WASTE, otherwise as ENTRY
     try {
-      await db.stockEvent.create({
+      const eventType = isAlreadyExpired ? "WASTE" : "ENTRY";
+      const event = await db.stockEvent.create({
         data: {
           restaurantId: restaurant.id,
-          type: "ENTRY",
+          type: eventType,
           productName: name,
           quantity: finalQuantity,
           unit,
+          batchId: createdBatch.id, // Link to the specific batch
         },
+      });
+      console.log(`[createProductBatch] Created ${eventType} event:`, {
+        id: event.id,
+        productName: name,
+        quantity: finalQuantity,
+        unit,
+        restaurantId: restaurant.id,
+        isAlreadyExpired,
+        expiryDate: expiryDate.toISOString(),
+        today: today.toISOString(),
       });
     } catch (eventError) {
       // Don't fail the whole operation if event creation fails
-      console.error("Error creating stock event:", eventError);
+      console.error("[createProductBatch] Error creating stock event:", eventError);
     }
 
     // Only revalidate paths that actually need to be updated
@@ -584,18 +678,26 @@ export async function deleteProductBatch(batchId: string) {
   if (batch && batch.quantity > 0) {
     // Register WASTE event for history tracking
     try {
-      await db.stockEvent.create({
+      const event = await db.stockEvent.create({
         data: {
           restaurantId: batch.restaurantId,
           type: "WASTE",
           productName: batch.name,
           quantity: batch.quantity,
           unit: batch.unit,
+          batchId: batch.id, // Link to the specific batch
         },
+      });
+      console.log(`[deleteProductBatch] Created WASTE event:`, {
+        id: event.id,
+        productName: batch.name,
+        quantity: batch.quantity,
+        unit: batch.unit,
+        restaurantId: batch.restaurantId,
       });
     } catch (eventError) {
       // Don't fail the whole operation if event creation fails
-      console.error("Error creating waste event:", eventError);
+      console.error("[deleteProductBatch] Error creating waste event:", eventError);
     }
   }
 
@@ -642,20 +744,33 @@ export async function adjustBatchQuantity(batchId: string, adjustment: number) {
 
     // Register WASTE event if quantity is being reduced (waste/expiry)
     // Only register if we're actually reducing quantity (not just consuming normally)
-    if (wastedQuantity > 0 && batch.quantity > 0) {
+    // Also register if quantity goes to 0 (full waste)
+    if ((wastedQuantity > 0 && batch.quantity > 0) || newQuantity <= 0) {
       try {
-        await db.stockEvent.create({
-          data: {
-            restaurantId: batch.restaurantId,
-            type: "WASTE",
+        const wasteAmount = newQuantity <= 0 ? batch.quantity : Math.min(wastedQuantity, batch.quantity);
+        if (wasteAmount > 0) {
+          const event = await db.stockEvent.create({
+            data: {
+              restaurantId: batch.restaurantId,
+              type: "WASTE",
+              productName: batch.name,
+              quantity: wasteAmount,
+              unit: batch.unit,
+              batchId: batch.id, // Link to the specific batch
+            },
+          });
+          console.log(`[adjustBatchQuantity] Created WASTE event:`, {
+            id: event.id,
             productName: batch.name,
-            quantity: Math.min(wastedQuantity, batch.quantity), // Don't register more than was available
+            quantity: wasteAmount,
             unit: batch.unit,
-          },
-        });
+            restaurantId: batch.restaurantId,
+            reason: newQuantity <= 0 ? "quantity_reached_zero" : "quantity_reduced",
+          });
+        }
       } catch (eventError) {
         // Don't fail the whole operation if event creation fails
-        console.error("Error creating waste event:", eventError);
+        console.error("[adjustBatchQuantity] Error creating waste event:", eventError);
       }
     }
 

@@ -60,22 +60,27 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
     const fetchEvents = async () => {
       setLoading(true);
       try {
-        const [year, month] = selectedMonth.split("-").map(Number);
-        const startDate = startOfMonth(new Date(year, month - 1));
-        const endDate = endOfMonth(new Date(year, month - 1));
-
-        const response = await fetch(
-          `/api/history?restaurantId=${restaurantId}&startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
-        );
+        console.log(`[HistoryContent] Fetching events for month: ${selectedMonth}, restaurantId: ${restaurantId}`);
+        
+        const response = await fetch(`/api/history?month=${selectedMonth}`);
 
         if (!response.ok) {
-          throw new Error("Erro ao carregar histórico");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Erro ao carregar histórico");
         }
 
         const data = await response.json();
-        setEvents(data.events || []);
+        console.log(`[HistoryContent] Received ${data.events?.length || 0} events`);
+        
+        // Convert createdAt strings to Date objects
+        const eventsWithDates = (data.events || []).map((event: any) => ({
+          ...event,
+          createdAt: new Date(event.createdAt),
+        }));
+        
+        setEvents(eventsWithDates);
       } catch (error) {
-        console.error("Error fetching history:", error);
+        console.error("[HistoryContent] Error fetching history:", error);
         setEvents([]);
       } finally {
         setLoading(false);

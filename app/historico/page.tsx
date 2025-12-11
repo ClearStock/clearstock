@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function HistoricoPage() {
   // Check authentication via cookie
   const cookieStore = await cookies();
-  const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
+  const restaurantId = cookieStore.get("clearstock_restaurantId")?.value;
 
   if (!restaurantId || !RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
     redirect("/acesso");
@@ -23,6 +23,10 @@ export default async function HistoricoPage() {
 
   try {
     const restaurant = await getRestaurantByTenantId(restaurantId as RestaurantId);
+
+    // Check for expired batches and register WASTE events
+    const { checkAndRegisterExpiredBatches } = await import("@/app/actions");
+    await checkAndRegisterExpiredBatches(restaurant.id);
 
     return (
       <AuthGuard>

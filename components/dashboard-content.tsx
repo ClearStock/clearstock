@@ -18,6 +18,10 @@ export default async function DashboardContent({
   try {
     const restaurant = await getRestaurantByTenantId(restaurantId);
 
+    // Check for expired batches and register WASTE events
+    const { checkAndRegisterExpiredBatches } = await import("@/app/actions");
+    await checkAndRegisterExpiredBatches(restaurant.id);
+
     const batches = await db.productBatch.findMany({
       where: {
         restaurantId: restaurant.id,
