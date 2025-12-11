@@ -41,6 +41,12 @@ export function MainNav({ restaurantName }: MainNavProps) {
       active: pathname === "/stock",
     },
     {
+      href: "/historico",
+      label: "Histórico",
+      icon: History,
+      active: pathname === "/historico",
+    },
+    {
       href: "/definicoes",
       label: "Definições",
       icon: Settings,
@@ -51,12 +57,6 @@ export function MainNav({ restaurantName }: MainNavProps) {
       label: "Suporte",
       icon: HelpCircle,
       active: pathname === "/suporte",
-    },
-    {
-      href: "/historico",
-      label: "Histórico",
-      icon: History,
-      active: pathname === "/historico",
     },
   ]
 
