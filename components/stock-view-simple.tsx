@@ -201,6 +201,23 @@ export function StockViewSimple({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialStatusFilter, initialSearchQuery]);
+
+  // Clear optimistic updates when server data matches
+  useEffect(() => {
+    setOptimisticUpdates(prev => {
+      const next = new Map(prev);
+      let changed = false;
+      for (const [batchId, optimisticValue] of next.entries()) {
+        const batch = batches.find(b => b.id === batchId);
+        if (batch && Math.abs(batch.quantity - optimisticValue) < 0.01) {
+          // Server data matches optimistic update, safe to clear
+          next.delete(batchId);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [batches]);
   
   // Helper to update current tab's filters
   const updateCurrentFilters = (updates: Partial<typeof currentFilters>) => {
