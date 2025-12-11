@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useTransition, useCallback, useRef, memo } from "react";
 import { useRouter } from "next/navigation";
-import { deleteProductBatch, adjustBatchQuantity } from "@/app/actions";
+import { deleteProductBatch, adjustBatchQuantity, markAsWaste } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { MapPin, Package, Search, Edit, Trash2, Plus, Minus } from "lucide-react";
+import { MapPin, Package, Search, Edit, Trash2, Plus, Minus, AlertTriangle } from "lucide-react";
 import { EditBatchDialog } from "./edit-batch-dialog";
 import { StatusBadge } from "./status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +158,11 @@ export function StockViewSimple({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [wasteDialogOpen, setWasteDialogOpen] = useState(false);
+  const [wastingBatch, setWastingBatch] = useState<BatchWithRelations | null>(
+    null
+  );
+  const [isMarkingWaste, setIsMarkingWaste] = useState(false);
   const [adjustingBatchId, setAdjustingBatchId] = useState<string | null>(null);
 
   // Update status filter and search query when props change (e.g., from navigation)
@@ -223,11 +228,40 @@ export function StockViewSimple({
   const confirmDelete = async () => {
     if (!deletingBatch) return;
     setIsDeleting(true);
-    await deleteProductBatch(deletingBatch.id);
-    setIsDeleting(false);
-    setDeleteDialogOpen(false);
-    setDeletingBatch(null);
-    router.refresh();
+    try {
+      await deleteProductBatch(deletingBatch.id);
+      toast.success("Entrada eliminada com sucesso");
+    } catch (error) {
+      toast.error("Erro ao eliminar entrada");
+      console.error("Error deleting batch:", error);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setDeletingBatch(null);
+      router.refresh();
+    }
+  };
+
+  const handleMarkAsWaste = (batch: BatchWithRelations) => {
+    setWastingBatch(batch);
+    setWasteDialogOpen(true);
+  };
+
+  const confirmMarkAsWaste = async () => {
+    if (!wastingBatch) return;
+    setIsMarkingWaste(true);
+    try {
+      await markAsWaste(wastingBatch.id);
+      toast.success("Produto marcado como desperdício");
+    } catch (error) {
+      toast.error("Erro ao marcar como desperdício");
+      console.error("Error marking as waste:", error);
+    } finally {
+      setIsMarkingWaste(false);
+      setWasteDialogOpen(false);
+      setWastingBatch(null);
+      router.refresh();
+    }
   };
 
   // Validação defensiva
@@ -705,10 +739,22 @@ export function StockViewSimple({
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-9 w-9 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            onClick={() => handleMarkAsWaste(batch)}
+                            aria-label="Marcar como desperdício"
+                            disabled={isAdjusting || isPending}
+                            title="Marcar como desperdício"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-9 w-9 text-destructive hover:text-destructive"
                             onClick={() => handleDelete(batch)}
                             aria-label="Eliminar entrada"
                             disabled={isAdjusting || isPending}
+                            title="Eliminar (sem registar desperdício)"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -791,6 +837,45 @@ export function StockViewSimple({
         />
       )}
 
+      {/* Dialog de confirmação de desperdício */}
+      <Dialog open={wasteDialogOpen} onOpenChange={setWasteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Marcar como desperdício</DialogTitle>
+            <DialogDescription>
+              Tem a certeza que deseja marcar este produto como desperdício? Esta
+              ação irá registar o desperdício no histórico e remover o produto do stock.
+            </DialogDescription>
+          </DialogHeader>
+          {wastingBatch && (
+            <div className="py-4">
+              <p className="font-medium">{wastingBatch.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {wastingBatch.quantity} {wastingBatch.unit}
+                {wastingBatch.location &&
+                  ` • ${wastingBatch.location.name}`}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setWasteDialogOpen(false)}
+              disabled={isMarkingWaste}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmMarkAsWaste}
+              disabled={isMarkingWaste}
+            >
+              {isMarkingWaste ? "A registar..." : "Sim, marcar como desperdício"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog de confirmação de eliminação */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
@@ -798,7 +883,8 @@ export function StockViewSimple({
             <DialogTitle>Eliminar entrada</DialogTitle>
             <DialogDescription>
               Tem a certeza que deseja eliminar esta entrada de stock? Esta
-              ação não pode ser desfeita.
+              ação não pode ser desfeita e <strong>não será registada como desperdício</strong>.
+              Use esta opção apenas para corrigir erros ou remover dados de teste.
             </DialogDescription>
           </DialogHeader>
           {deletingBatch && (

@@ -31,6 +31,12 @@ const CACHE_TTL_MS = 60 * 1000; // 1 minute cache
  * OPTIMIZED: Uses batch queries instead of individual queries per batch
  * CACHED: Only runs once per minute per restaurant to avoid performance issues
  */
+/**
+ * Check for expired batches and mark them as expired
+ * NOTE: This does NOT automatically create WASTE events
+ * WASTE events should only be created when the user explicitly marks a product as waste
+ * This function is kept for potential future use (e.g., marking batches as EXPIRED status)
+ */
 export async function checkAndRegisterExpiredBatches(restaurantId: string) {
   // Check cache to avoid running too frequently
   const lastCheck = expiredBatchesCheckCache.get(restaurantId);
@@ -68,55 +74,12 @@ export async function checkAndRegisterExpiredBatches(restaurantId: string) {
       },
     });
 
-    if (expiredBatches.length === 0) {
-      return { registered: 0 };
-    }
-
-    // Get all batch IDs that already have WASTE events (single query instead of N queries)
-    const batchIds = expiredBatches.map(b => b.id);
-    const existingWasteEvents = await db.stockEvent.findMany({
-      where: {
-        restaurantId,
-        type: "WASTE",
-        batchId: {
-          in: batchIds, // Check all batches at once
-        },
-      },
-      select: {
-        batchId: true,
-      },
-    });
-
-    // Create a Set of batch IDs that already have WASTE events for fast lookup
-    const existingBatchIds = new Set(existingWasteEvents.map(e => e.batchId).filter(Boolean));
-
-    // Filter batches that don't have WASTE events yet
-    const batchesToRegister = expiredBatches.filter(batch => !existingBatchIds.has(batch.id));
-
-    if (batchesToRegister.length === 0) {
-      return { registered: 0 };
-    }
-
-    // Create all WASTE events in a single transaction (much faster)
-    try {
-      await db.stockEvent.createMany({
-        data: batchesToRegister.map(batch => ({
-          restaurantId: batch.restaurantId,
-          type: "WASTE" as const,
-          productName: batch.name,
-          quantity: batch.quantity,
-          unit: batch.unit,
-          batchId: batch.id,
-        })),
-        skipDuplicates: true, // Skip if somehow duplicates exist
-      });
-
-      console.log(`[checkAndRegisterExpiredBatches] Registered ${batchesToRegister.length} WASTE events for expired batches`);
-      return { registered: batchesToRegister.length };
-    } catch (eventError) {
-      console.error("[checkAndRegisterExpiredBatches] Error creating WASTE events:", eventError);
-      return { registered: 0, error: eventError instanceof Error ? eventError.message : "Unknown error" };
-    }
+    // NOTE: We no longer automatically create WASTE events for expired batches
+    // WASTE events should only be created when the user explicitly marks a product as waste
+    // This function is kept for potential future use (e.g., marking batches as EXPIRED status)
+    // For now, we just return the count of expired batches without creating events
+    console.log(`[checkAndRegisterExpiredBatches] Found ${expiredBatches.length} expired batches (no WASTE events created - user must explicitly mark as waste)`);
+    return { registered: 0, expiredCount: expiredBatches.length };
   } catch (error) {
     console.error("[checkAndRegisterExpiredBatches] Error checking expired batches:", error);
     return { registered: 0, error: error instanceof Error ? error.message : "Unknown error" };
@@ -730,7 +693,33 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
   }
 }
 
+/**
+ * Delete a product batch WITHOUT registering it as waste
+ * This is for technical operations: correcting errors, removing test data, cleaning up old data
+ * IMPORTANT: This does NOT create a WASTE event - use markAsWaste() for actual waste
+ */
 export async function deleteProductBatch(batchId: string) {
+  const tenantId = await getRestaurantIdFromCookie();
+  if (!tenantId) throw new Error("Não autenticado");
+
+  // Simply delete the batch - no WASTE event is created
+  // This is intentional: delete is a technical operation, not waste tracking
+  await db.productBatch.delete({
+    where: { id: batchId },
+  });
+
+  console.log(`[deleteProductBatch] Deleted batch ${batchId} (no WASTE event created - technical delete)`);
+
+  revalidatePath("/stock", "page");
+  revalidatePath("/historico", "page");
+}
+
+/**
+ * Mark a product batch as waste and delete it
+ * This is an EXPLICIT action by the kitchen to declare that the product was thrown away
+ * Creates a WASTE event in the history before deleting the batch
+ */
+export async function markAsWaste(batchId: string) {
   const tenantId = await getRestaurantIdFromCookie();
   if (!tenantId) throw new Error("Não autenticado");
 
@@ -740,8 +729,12 @@ export async function deleteProductBatch(batchId: string) {
     include: { restaurant: true },
   });
 
-  if (batch && batch.quantity > 0) {
-    // Register WASTE event for history tracking
+  if (!batch) {
+    throw new Error("Batch não encontrado");
+  }
+
+  // Register WASTE event for history tracking (explicit waste declaration)
+  if (batch.quantity > 0) {
     try {
       const event = await db.stockEvent.create({
         data: {
@@ -753,7 +746,7 @@ export async function deleteProductBatch(batchId: string) {
           batchId: batch.id, // Link to the specific batch
         },
       });
-      console.log(`[deleteProductBatch] Created WASTE event:`, {
+      console.log(`[markAsWaste] Created WASTE event:`, {
         id: event.id,
         productName: batch.name,
         quantity: batch.quantity,
@@ -761,16 +754,20 @@ export async function deleteProductBatch(batchId: string) {
         restaurantId: batch.restaurantId,
       });
     } catch (eventError) {
-      // Don't fail the whole operation if event creation fails
-      console.error("[deleteProductBatch] Error creating waste event:", eventError);
+      console.error("[markAsWaste] Error creating waste event:", eventError);
+      // Don't fail the whole operation, but log the error
     }
   }
 
+  // Delete the batch after registering waste
   await db.productBatch.delete({
     where: { id: batchId },
   });
 
+  console.log(`[markAsWaste] Marked batch ${batchId} as waste and deleted`);
+
   revalidatePath("/stock", "page");
+  revalidatePath("/historico", "page");
 }
 
 /**
@@ -805,39 +802,10 @@ export async function adjustBatchQuantity(batchId: string, adjustment: number) {
 
     // Calculate new quantity
     const newQuantity = Math.max(0, batch.quantity + adjustment);
-    const wastedQuantity = adjustment < 0 ? Math.abs(adjustment) : 0;
 
-    // Register WASTE event if quantity is being reduced (waste/expiry)
-    // Only register if we're actually reducing quantity (not just consuming normally)
-    // Also register if quantity goes to 0 (full waste)
-    if ((wastedQuantity > 0 && batch.quantity > 0) || newQuantity <= 0) {
-      try {
-        const wasteAmount = newQuantity <= 0 ? batch.quantity : Math.min(wastedQuantity, batch.quantity);
-        if (wasteAmount > 0) {
-          const event = await db.stockEvent.create({
-            data: {
-              restaurantId: batch.restaurantId,
-              type: "WASTE",
-              productName: batch.name,
-              quantity: wasteAmount,
-              unit: batch.unit,
-              batchId: batch.id, // Link to the specific batch
-            },
-          });
-          console.log(`[adjustBatchQuantity] Created WASTE event:`, {
-            id: event.id,
-            productName: batch.name,
-            quantity: wasteAmount,
-            unit: batch.unit,
-            restaurantId: batch.restaurantId,
-            reason: newQuantity <= 0 ? "quantity_reached_zero" : "quantity_reduced",
-          });
-        }
-      } catch (eventError) {
-        // Don't fail the whole operation if event creation fails
-        console.error("[adjustBatchQuantity] Error creating waste event:", eventError);
-      }
-    }
+    // NOTE: We no longer automatically create WASTE events when adjusting quantity
+    // Adjusting quantity is a technical operation (e.g., correcting errors, consuming normally)
+    // WASTE events should only be created when the user explicitly marks a product as waste
 
     // Update batch
     await db.productBatch.update({
