@@ -295,8 +295,16 @@ export function StockViewSimple({
     const batch = batches.find(b => b.id === batchId);
     if (!batch) return;
 
-    const currentQuantity = batch.quantity;
+    // Use optimistic quantity if available, otherwise use batch quantity
+    const currentQuantity = optimisticUpdates.has(batchId)
+      ? (optimisticUpdates.get(batchId) ?? batch.quantity)
+      : batch.quantity;
     const newQuantity = Math.max(0, currentQuantity + adjustment);
+    
+    // Prevent adjustment if already at 0 and trying to decrease
+    if (currentQuantity <= 0 && adjustment < 0) {
+      return;
+    }
     
     // Optimistic update: update UI immediately
     setOptimisticUpdates(prev => {
@@ -723,6 +731,8 @@ export function StockViewSimple({
                     : batch.quantity;
                   const isFinished = (displayQuantity ?? 0) <= 0;
                   const isAdjusting = adjustingBatchId === batch.id;
+                  // Allow buttons to show if quantity > 0 (using optimistic value)
+                  const canAdjust = displayQuantity > 0;
 
                   return (
                     <div
@@ -809,14 +819,14 @@ export function StockViewSimple({
                               : batch.quantity} {batch.unit}
                           </span>
                           {/* Quantity adjustment buttons */}
-                          {!isFinished && (
+                          {canAdjust && (
                             <div className="flex items-center gap-1 ml-2">
                               <Button
                                 variant="outline"
                                 size="icon"
                                 className="h-7 w-7 text-sm border-gray-300 hover:bg-gray-50"
                                 onClick={() => handleAdjustQuantity(batch.id, -1)}
-                                disabled={isAdjusting || isPending}
+                                disabled={isAdjusting && adjustingBatchId === batch.id}
                                 aria-label="Diminuir quantidade"
                               >
                                 <Minus className="h-3 w-3" />
@@ -826,7 +836,7 @@ export function StockViewSimple({
                                 size="icon"
                                 className="h-7 w-7 text-sm border-gray-300 hover:bg-gray-50"
                                 onClick={() => handleAdjustQuantity(batch.id, 1)}
-                                disabled={isAdjusting || isPending}
+                                disabled={isAdjusting && adjustingBatchId === batch.id}
                                 aria-label="Aumentar quantidade"
                               >
                                 <Plus className="h-3 w-3" />
