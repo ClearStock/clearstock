@@ -211,14 +211,16 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Desperdício</CardTitle>
-                {summary.wastePercentage !== null && summary.wastePercentage > 15 ? (
+                {summary.hasMixedUnits ? (
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                ) : summary.wastePercentage !== null && summary.wastePercentage > 15 ? (
                   <TrendingUp className="h-4 w-4 text-destructive" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-green-600" />
                 )}
               </CardHeader>
               <CardContent>
-                {summary.hasEnoughData && summary.wastePercentage !== null && !summary.hasMixedUnits ? (
+                {summary.hasEnoughData && !summary.hasMixedUnits && summary.wastePercentage !== null ? (
                   <>
                     <div className="text-2xl font-bold">
                       {summary.wastePercentage.toFixed(1)}%
@@ -227,17 +229,28 @@ export function HistoryContent({ restaurantId }: HistoryContentProps) {
                       Do total encomendado
                     </p>
                   </>
+                ) : summary.hasMixedUnits ? (
+                  <>
+                    <div className="space-y-1">
+                      {summary.totalsByUnit
+                        .filter(t => t.ordered > 0 && t.wastePercentage !== null)
+                        .map(({ unit, wastePercentage }) => (
+                          <div key={unit} className="text-lg font-bold">
+                            {wastePercentage!.toFixed(1)}% <span className="text-sm font-normal text-muted-foreground">({unit})</span>
+                          </div>
+                        ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Percentagem por unidade
+                    </p>
+                  </>
                 ) : (
                   <>
                     <div className="text-sm font-medium text-muted-foreground">
-                      {summary.hasMixedUnits
-                        ? "Unidades mistas"
-                        : "Ainda sem dados suficientes"}
+                      Ainda sem dados suficientes
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {summary.hasMixedUnits
-                        ? "Não é possível calcular % com unidades diferentes"
-                        : summary.totalsByUnit.length === 0
+                      {summary.totalsByUnit.length === 0
                         ? "Sem entradas para calcular"
                         : "Dados insuficientes para percentagem"}
                     </p>

@@ -236,8 +236,13 @@ function generateSuggestion(
  * IMPORTANT: Does NOT mix different units - calculates totals per unit separately
  */
 export interface MonthlySummary {
-  totalsByUnit: Array<{ unit: string; ordered: number; wasted: number }>; // Totals grouped by unit
-  wastePercentage: number | null; // null when percentage doesn't make sense or units are mixed
+  totalsByUnit: Array<{ 
+    unit: string; 
+    ordered: number; 
+    wasted: number;
+    wastePercentage: number | null; // Percentage for this specific unit
+  }>; // Totals grouped by unit with percentage per unit
+  wastePercentage: number | null; // Overall percentage (only when single unit)
   hasEnoughData: boolean; // true if we have meaningful data
   hasMixedUnits: boolean; // true if there are multiple different units
 }
@@ -263,26 +268,33 @@ export function calculateMonthlySummary(
     }
   }
 
+  // Calculate totals with percentage per unit
   const totalsByUnit = Array.from(totalsByUnitMap.entries())
-    .map(([unit, totals]) => ({ unit, ...totals }))
+    .map(([unit, totals]) => {
+      let wastePercentage: number | null = null;
+      if (totals.ordered > 0) {
+        const percentage = (totals.wasted / totals.ordered) * 100;
+        // Only set percentage if it's reasonable (avoid absurd values)
+        if (percentage <= 200) {
+          wastePercentage = percentage;
+        }
+      }
+      return {
+        unit,
+        ordered: totals.ordered,
+        wasted: totals.wasted,
+        wastePercentage,
+      };
+    })
     .sort((a, b) => a.unit.localeCompare(b.unit));
 
   const hasMixedUnits = totalsByUnit.length > 1;
   const hasEnoughData = totalsByUnit.some(t => t.ordered > 0);
 
-  // Calculate waste percentage only when:
-  // 1. We have enough data
-  // 2. There's only ONE unit (to avoid mixing units)
+  // Overall percentage only when there's a single unit
   let wastePercentage: number | null = null;
   if (hasEnoughData && !hasMixedUnits && totalsByUnit.length === 1) {
-    const { ordered, wasted } = totalsByUnit[0];
-    if (ordered > 0) {
-      const percentage = (wasted / ordered) * 100;
-      // Only set percentage if it's reasonable (avoid absurd values)
-      if (percentage <= 200) {
-        wastePercentage = percentage;
-      }
-    }
+    wastePercentage = totalsByUnit[0].wastePercentage;
   }
 
   return {
