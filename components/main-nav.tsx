@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { LayoutDashboard, PlusCircle, Package, Settings, Menu, HelpCircle } from "lucide-react"
+import { LayoutDashboard, PlusCircle, Package, Settings, Menu, HelpCircle, History } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -51,6 +51,12 @@ export function MainNav({ restaurantName }: MainNavProps) {
       label: "Suporte",
       icon: HelpCircle,
       active: pathname === "/suporte",
+    },
+    {
+      href: "/historico",
+      label: "Histórico",
+      icon: History,
+      active: pathname === "/historico",
     },
   ]
 

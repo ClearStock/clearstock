@@ -1,0 +1,36 @@
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { getRestaurantByTenantId } from "@/lib/data-access";
+import { RESTAURANT_IDS, type RestaurantId } from "@/lib/auth";
+import { AuthGuard } from "@/components/auth-guard";
+import { HistoryContent } from "@/components/history-content";
+import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Histórico & Encomendas page - Protected route
+ * Shows monthly history (ENTRY and WASTE events) for decision making
+ */
+export default async function HistoricoPage() {
+  // Check authentication via cookie
+  const cookieStore = await cookies();
+  const restaurantId = cookieStore.get("clearskok_restaurantId")?.value;
+
+  if (!restaurantId || !RESTAURANT_IDS.includes(restaurantId as RestaurantId)) {
+    redirect("/acesso");
+  }
+
+  try {
+    const restaurant = await getRestaurantByTenantId(restaurantId as RestaurantId);
+
+    return (
+      <AuthGuard>
+        <HistoryContent restaurantId={restaurant.id} />
+      </AuthGuard>
+    );
+  } catch (error) {
+    console.error("Error loading history page:", error);
+    redirect("/acesso");
+  }
+}

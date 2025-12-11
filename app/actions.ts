@@ -445,10 +445,12 @@ export async function createProductBatch(formData: FormData) {
     const size = sizeRawValue && !isNaN(Number(sizeRawValue)) && Number(sizeRawValue) > 0 ? Number(sizeRawValue) : null;
     const sizeUnit = size && sizeUnitRaw && String(sizeUnitRaw).trim() !== "" ? String(sizeUnitRaw).trim() : null;
 
+    const finalQuantity = isNaN(quantity) || quantity <= 0 ? 1 : quantity;
+    
     await db.productBatch.create({
       data: {
         name,
-        quantity: isNaN(quantity) || quantity <= 0 ? 1 : quantity,
+        quantity: finalQuantity,
         unit,
         expiryDate,
         tipo,
@@ -461,6 +463,22 @@ export async function createProductBatch(formData: FormData) {
         sizeUnit,
       },
     });
+
+    // Register ENTRY event for history tracking
+    try {
+      await db.stockEvent.create({
+        data: {
+          restaurantId: restaurant.id,
+          type: "ENTRY",
+          productName: name,
+          quantity: finalQuantity,
+          unit,
+        },
+      });
+    } catch (eventError) {
+      // Don't fail the whole operation if event creation fails
+      console.error("Error creating stock event:", eventError);
+    }
 
     // Only revalidate paths that actually need to be updated
     revalidatePath("/stock", "page");
@@ -557,6 +575,30 @@ export async function deleteProductBatch(batchId: string) {
   const tenantId = await getRestaurantIdFromCookie();
   if (!tenantId) throw new Error("Não autenticado");
 
+  // Get batch info before deleting to register WASTE event
+  const batch = await db.productBatch.findUnique({
+    where: { id: batchId },
+    include: { restaurant: true },
+  });
+
+  if (batch && batch.quantity > 0) {
+    // Register WASTE event for history tracking
+    try {
+      await db.stockEvent.create({
+        data: {
+          restaurantId: batch.restaurantId,
+          type: "WASTE",
+          productName: batch.name,
+          quantity: batch.quantity,
+          unit: batch.unit,
+        },
+      });
+    } catch (eventError) {
+      // Don't fail the whole operation if event creation fails
+      console.error("Error creating waste event:", eventError);
+    }
+  }
+
   await db.productBatch.delete({
     where: { id: batchId },
   });
@@ -596,6 +638,26 @@ export async function adjustBatchQuantity(batchId: string, adjustment: number) {
 
     // Calculate new quantity
     const newQuantity = Math.max(0, batch.quantity + adjustment);
+    const wastedQuantity = adjustment < 0 ? Math.abs(adjustment) : 0;
+
+    // Register WASTE event if quantity is being reduced (waste/expiry)
+    // Only register if we're actually reducing quantity (not just consuming normally)
+    if (wastedQuantity > 0 && batch.quantity > 0) {
+      try {
+        await db.stockEvent.create({
+          data: {
+            restaurantId: batch.restaurantId,
+            type: "WASTE",
+            productName: batch.name,
+            quantity: Math.min(wastedQuantity, batch.quantity), // Don't register more than was available
+            unit: batch.unit,
+          },
+        });
+      } catch (eventError) {
+        // Don't fail the whole operation if event creation fails
+        console.error("Error creating waste event:", eventError);
+      }
+    }
 
     // Update batch
     await db.productBatch.update({
@@ -625,4 +687,41 @@ export async function adjustBatchQuantity(batchId: string, adjustment: number) {
   }
 }
 
+/**
+ * Server action to get stock events for a specific month
+ */
+export async function getStockEventsForMonthAction(year: number, month: number) {
+  try {
+    const tenantId = await getRestaurantIdFromCookie();
+    if (!tenantId) {
+      return {
+        success: false,
+        error: "Não autenticado",
+        events: [],
+      };
+    }
+
+    const restaurant = await getRestaurantByTenantId(tenantId);
+    const { getStockEventsForMonth } = await import("@/lib/history-utils");
+    const events = await getStockEventsForMonth(restaurant.id, year, month);
+
+    return {
+      success: true,
+      events: events.map(e => ({
+        type: e.type,
+        productName: e.productName,
+        quantity: e.quantity,
+        unit: e.unit,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    };
+  } catch (error) {
+    console.error("Error getting stock events:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro desconhecido",
+      events: [],
+    };
+  }
+}
 
