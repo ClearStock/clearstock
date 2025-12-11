@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createProductBatch } from "@/app/actions";
@@ -99,8 +99,8 @@ export default function NewEntryForm({
           // Reset form element (for native HTML form reset)
           formElement.reset();
 
-          // Refresh router to update any cached data
-          router.refresh();
+          // Não fazer router.refresh() - causa lag desnecessário
+          // Os dados serão atualizados quando o utilizador navegar para Stock
         } else {
           // Show error toast
           toast.error("Erro ao guardar entrada", {
@@ -119,7 +119,13 @@ export default function NewEntryForm({
     });
   };
 
-  const handleInputChange = (
+  // Memoizar categorias filtradas por tipo para evitar recálculos
+  const filteredCategories = useMemo(() => {
+    return categories.filter((cat) => (cat as any).tipo === formData.tipo);
+  }, [categories, formData.tipo]);
+
+  // Handler memoizado para mudanças de input
+  const handleInputChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
@@ -127,7 +133,69 @@ export default function NewEntryForm({
       ...prev,
       [name]: value,
     }));
-  };
+  }, []);
+
+  // Handlers memoizados para botões de quick days (Transformado)
+  const handleQuickDayClick = useCallback((days: number) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + days);
+    const dateStr = date.toISOString().split("T")[0];
+    
+    setSelectedQuickDays(days);
+    setFormData((prev) => ({ 
+      ...prev, 
+      expiryDate: dateStr, 
+      extraDays: days.toString() 
+    }));
+  }, []);
+
+  // Handler otimizado para extraDays - memoizado para evitar recriações
+  const handleExtraDaysChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    
+    // Verificar se corresponde a um botão rápido
+    const quickDaysMap: Record<string, number> = { "0": 0, "1": 1, "3": 3, "7": 7 };
+    const matchedDays = quickDaysMap[inputValue];
+    
+    if (matchedDays !== undefined) {
+      setSelectedQuickDays(matchedDays);
+    } else {
+      // Se não corresponde, deselecionar botão
+      setSelectedQuickDays((prev) => prev !== null ? null : prev);
+    }
+    
+    // Calcular nova data apenas se o valor for válido
+    const days = parseInt(inputValue) || 0;
+    if (days >= 0 || inputValue === "") {
+      // Usar data base atual
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const newDate = new Date(today);
+      
+      // Se inputValue está vazio, manter hoje
+      if (inputValue !== "") {
+        newDate.setDate(newDate.getDate() + days);
+      }
+      
+      setFormData((prev) => ({ 
+        ...prev, 
+        extraDays: inputValue,
+        expiryDate: newDate.toISOString().split("T")[0]
+      }));
+    }
+  }, []);
+
+  // Handlers memoizados para botões de MP (mais simples, sem extraDays)
+  const handleMPDateClick = useCallback((days: number) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + days);
+    const dateStr = date.toISOString().split("T")[0];
+    
+    setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
+  }, []);
 
 
   return (
@@ -247,10 +315,7 @@ export default function NewEntryForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const today = new Date().toISOString().split("T")[0];
-                      setFormData((prev) => ({ ...prev, expiryDate: today }));
-                    }}
+                    onClick={() => handleMPDateClick(0)}
                     className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
                     disabled={isPending}
                   >
@@ -260,12 +325,7 @@ export default function NewEntryForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      const dateStr = tomorrow.toISOString().split("T")[0];
-                      setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
-                    }}
+                    onClick={() => handleMPDateClick(1)}
                     className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
                     disabled={isPending}
                   >
@@ -275,12 +335,7 @@ export default function NewEntryForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const in3Days = new Date();
-                      in3Days.setDate(in3Days.getDate() + 3);
-                      const dateStr = in3Days.toISOString().split("T")[0];
-                      setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
-                    }}
+                    onClick={() => handleMPDateClick(3)}
                     className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
                     disabled={isPending}
                   >
@@ -290,12 +345,7 @@ export default function NewEntryForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const in7Days = new Date();
-                      in7Days.setDate(in7Days.getDate() + 7);
-                      const dateStr = in7Days.toISOString().split("T")[0];
-                      setFormData((prev) => ({ ...prev, expiryDate: dateStr }));
-                    }}
+                    onClick={() => handleMPDateClick(7)}
                     className="text-xs md:text-sm px-3 py-1 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
                     disabled={isPending}
                   >
@@ -314,11 +364,7 @@ export default function NewEntryForm({
                     type="button"
                     variant={selectedQuickDays === 0 ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const today = new Date().toISOString().split("T")[0];
-                      setSelectedQuickDays(0);
-                      setFormData((prev) => ({ ...prev, expiryDate: today, extraDays: "0" }));
-                    }}
+                    onClick={() => handleQuickDayClick(0)}
                     className={`text-xs md:text-sm px-3 py-1 h-8 rounded-lg ${
                       selectedQuickDays === 0
                         ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
@@ -332,13 +378,7 @@ export default function NewEntryForm({
                     type="button"
                     variant={selectedQuickDays === 1 ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      const dateStr = tomorrow.toISOString().split("T")[0];
-                      setSelectedQuickDays(1);
-                      setFormData((prev) => ({ ...prev, expiryDate: dateStr, extraDays: "1" }));
-                    }}
+                    onClick={() => handleQuickDayClick(1)}
                     className={`text-xs md:text-sm px-3 py-1 h-8 rounded-lg ${
                       selectedQuickDays === 1
                         ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
@@ -352,13 +392,7 @@ export default function NewEntryForm({
                     type="button"
                     variant={selectedQuickDays === 3 ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const in3Days = new Date();
-                      in3Days.setDate(in3Days.getDate() + 3);
-                      const dateStr = in3Days.toISOString().split("T")[0];
-                      setSelectedQuickDays(3);
-                      setFormData((prev) => ({ ...prev, expiryDate: dateStr, extraDays: "3" }));
-                    }}
+                    onClick={() => handleQuickDayClick(3)}
                     className={`text-xs md:text-sm px-3 py-1 h-8 rounded-lg ${
                       selectedQuickDays === 3
                         ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
@@ -372,13 +406,7 @@ export default function NewEntryForm({
                     type="button"
                     variant={selectedQuickDays === 7 ? "default" : "outline"}
                     size="sm"
-                    onClick={() => {
-                      const in7Days = new Date();
-                      in7Days.setDate(in7Days.getDate() + 7);
-                      const dateStr = in7Days.toISOString().split("T")[0];
-                      setSelectedQuickDays(7);
-                      setFormData((prev) => ({ ...prev, expiryDate: dateStr, extraDays: "7" }));
-                    }}
+                    onClick={() => handleQuickDayClick(7)}
                     className={`text-xs md:text-sm px-3 py-1 h-8 rounded-lg ${
                       selectedQuickDays === 7
                         ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
@@ -400,39 +428,7 @@ export default function NewEntryForm({
                     type="number"
                     min="0"
                     value={formData.extraDays}
-                    onChange={(e) => {
-                      const inputValue = e.target.value;
-                      // Se o utilizador editar manualmente, verificar se ainda corresponde a um botão
-                      if (selectedQuickDays !== null) {
-                        const quickDaysValue = selectedQuickDays.toString();
-                        if (inputValue !== quickDaysValue) {
-                          setSelectedQuickDays(null);
-                        }
-                      } else {
-                        // Se não há seleção, verificar se o valor corresponde a algum botão
-                        if (inputValue === "0") {
-                          setSelectedQuickDays(0);
-                        } else if (inputValue === "1") {
-                          setSelectedQuickDays(1);
-                        } else if (inputValue === "3") {
-                          setSelectedQuickDays(3);
-                        } else if (inputValue === "7") {
-                          setSelectedQuickDays(7);
-                        }
-                      }
-                      
-                      const days = parseInt(inputValue) || 0;
-                      if (days >= 0 || inputValue === "") {
-                        const baseDate = formData.expiryDate ? new Date(formData.expiryDate) : new Date();
-                        const newDate = new Date(baseDate);
-                        newDate.setDate(newDate.getDate() + days);
-                        setFormData((prev) => ({ 
-                          ...prev, 
-                          extraDays: inputValue,
-                          expiryDate: newDate.toISOString().split("T")[0]
-                        }));
-                      }
-                    }}
+                    onChange={handleExtraDaysChange}
                     placeholder="Ex: 2 (adiciona 2 dias)"
                     className="h-11 md:h-10 text-base"
                     disabled={isPending}
@@ -464,13 +460,11 @@ export default function NewEntryForm({
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories
-                    .filter((cat) => (cat as any).tipo === formData.tipo)
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                  {filteredCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
