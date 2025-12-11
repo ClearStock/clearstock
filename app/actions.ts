@@ -20,11 +20,28 @@ async function getRestaurantIdFromCookie(): Promise<RestaurantId | null> {
   return null;
 }
 
+// Simple in-memory cache to throttle checkAndRegisterExpiredBatches calls
+// Key: restaurantId, Value: timestamp of last check
+const expiredBatchesCheckCache = new Map<string, number>();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute cache
+
 /**
  * Check for expired batches and register WASTE events for them
  * This function should be called periodically or when loading stock/history pages
+ * OPTIMIZED: Uses batch queries instead of individual queries per batch
+ * CACHED: Only runs once per minute per restaurant to avoid performance issues
  */
 export async function checkAndRegisterExpiredBatches(restaurantId: string) {
+  // Check cache to avoid running too frequently
+  const lastCheck = expiredBatchesCheckCache.get(restaurantId);
+  const now = Date.now();
+  if (lastCheck && (now - lastCheck) < CACHE_TTL_MS) {
+    console.log(`[checkAndRegisterExpiredBatches] Skipping check for restaurant ${restaurantId} (cached, last check ${Math.round((now - lastCheck) / 1000)}s ago)`);
+    return { registered: 0, cached: true };
+  }
+
+  // Update cache
+  expiredBatchesCheckCache.set(restaurantId, now);
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
@@ -37,6 +54,17 @@ export async function checkAndRegisterExpiredBatches(restaurantId: string) {
         expiryDate: {
           lt: today, // expiryDate < today
         },
+        quantity: {
+          gt: 0, // Only batches with quantity > 0
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        unit: true,
+        expiryDate: true,
+        restaurantId: true,
       },
     });
 
@@ -44,49 +72,51 @@ export async function checkAndRegisterExpiredBatches(restaurantId: string) {
       return { registered: 0 };
     }
 
-    let registeredCount = 0;
-
-    // For each expired batch, check if WASTE event already exists
-    // and register if it doesn't
-    for (const batch of expiredBatches) {
-      // Check if a WASTE event already exists for this specific batch
-      // Using batchId for precise tracking (if available) or fallback to product matching
-      const existingWasteEvent = await db.stockEvent.findFirst({
-        where: {
-          restaurantId: batch.restaurantId,
-          type: "WASTE",
-          batchId: batch.id, // Use batchId for precise tracking
+    // Get all batch IDs that already have WASTE events (single query instead of N queries)
+    const batchIds = expiredBatches.map(b => b.id);
+    const existingWasteEvents = await db.stockEvent.findMany({
+      where: {
+        restaurantId,
+        type: "WASTE",
+        batchId: {
+          in: batchIds, // Check all batches at once
         },
-      });
+      },
+      select: {
+        batchId: true,
+      },
+    });
 
-      // If no WASTE event exists, create one
-      if (!existingWasteEvent && batch.quantity > 0) {
-        try {
-          await db.stockEvent.create({
-            data: {
-              restaurantId: batch.restaurantId,
-              type: "WASTE",
-              productName: batch.name,
-              quantity: batch.quantity,
-              unit: batch.unit,
-              batchId: batch.id, // Link to the specific batch
-            },
-          });
-          registeredCount++;
-          console.log(`[checkAndRegisterExpiredBatches] Registered WASTE for expired batch:`, {
-            batchId: batch.id,
-            productName: batch.name,
-            quantity: batch.quantity,
-            unit: batch.unit,
-            expiryDate: batch.expiryDate.toISOString(),
-          });
-        } catch (eventError) {
-          console.error(`[checkAndRegisterExpiredBatches] Error creating WASTE event for batch ${batch.id}:`, eventError);
-        }
-      }
+    // Create a Set of batch IDs that already have WASTE events for fast lookup
+    const existingBatchIds = new Set(existingWasteEvents.map(e => e.batchId).filter(Boolean));
+
+    // Filter batches that don't have WASTE events yet
+    const batchesToRegister = expiredBatches.filter(batch => !existingBatchIds.has(batch.id));
+
+    if (batchesToRegister.length === 0) {
+      return { registered: 0 };
     }
 
-    return { registered: registeredCount };
+    // Create all WASTE events in a single transaction (much faster)
+    try {
+      await db.stockEvent.createMany({
+        data: batchesToRegister.map(batch => ({
+          restaurantId: batch.restaurantId,
+          type: "WASTE" as const,
+          productName: batch.name,
+          quantity: batch.quantity,
+          unit: batch.unit,
+          batchId: batch.id,
+        })),
+        skipDuplicates: true, // Skip if somehow duplicates exist
+      });
+
+      console.log(`[checkAndRegisterExpiredBatches] Registered ${batchesToRegister.length} WASTE events for expired batches`);
+      return { registered: batchesToRegister.length };
+    } catch (eventError) {
+      console.error("[checkAndRegisterExpiredBatches] Error creating WASTE events:", eventError);
+      return { registered: 0, error: eventError instanceof Error ? eventError.message : "Unknown error" };
+    }
   } catch (error) {
     console.error("[checkAndRegisterExpiredBatches] Error checking expired batches:", error);
     return { registered: 0, error: error instanceof Error ? error.message : "Unknown error" };
