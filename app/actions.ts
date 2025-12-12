@@ -126,8 +126,18 @@ export async function validatePinAndLogin(pin: string) {
     // Normalize PIN (handle 4-digit backward compatibility)
     const normalizedPin = normalizePIN(trimmedPin);
     
+    console.log("[validatePinAndLogin] Input PIN:", pin);
+    console.log("[validatePinAndLogin] Trimmed PIN:", trimmedPin);
+    console.log("[validatePinAndLogin] Normalized PIN:", normalizedPin);
+    
     // Get restaurant by PIN
     const restaurant = await getRestaurantByPin(normalizedPin);
+    
+    console.log("[validatePinAndLogin] Restaurant found:", restaurant ? "yes" : "no");
+    if (restaurant) {
+      console.log("[validatePinAndLogin] Restaurant ID:", restaurant.id);
+      console.log("[validatePinAndLogin] Restaurant PIN:", restaurant.pin);
+    }
     
     if (!restaurant) {
       return {
@@ -139,6 +149,9 @@ export async function validatePinAndLogin(pin: string) {
     // Get the tenant ID from PIN mapping (for cookie compatibility)
     // If PIN is not in the mapping, use the restaurant ID as fallback
     let tenantId: string = PIN_TO_RESTAURANT[normalizedPin] || restaurant.id;
+    
+    console.log("[validatePinAndLogin] Tenant ID:", tenantId);
+    console.log("[validatePinAndLogin] PIN in mapping:", PIN_TO_RESTAURANT[normalizedPin] ? "yes" : "no");
     
     // For new PINs not in the mapping, use the restaurant ID directly
     // This allows new PINs to work without being in the static mapping
