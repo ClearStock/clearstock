@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { RestaurantId } from "@/lib/auth";
 
 interface DashboardContentProps {
-  restaurantId: RestaurantId;
+  restaurantId: RestaurantId | string;
 }
 
 export default async function DashboardContent({

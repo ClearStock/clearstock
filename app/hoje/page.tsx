@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { AuthGuard } from "@/components/auth-guard";
 import DashboardContent from "@/components/dashboard-content";
-import { isValidRestaurantIdentifier } from "@/lib/auth";
+import { isValidRestaurantIdentifier, type RestaurantId } from "@/lib/auth";
 import { getRestaurantByTenantId } from "@/lib/data-access";
 
 export const dynamic = "force-dynamic";
