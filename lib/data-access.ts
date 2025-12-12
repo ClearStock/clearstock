@@ -54,10 +54,15 @@ export async function getRestaurantByTenantId(tenantId: RestaurantId | string) {
     if (restaurant) return restaurant;
 
     // Create restaurant if it doesn't exist
+    // Only use RESTAURANT_NAMES if tenantId is a valid RestaurantId
+    const restaurantName = RESTAURANT_IDS.includes(tenantId as RestaurantId) 
+      ? RESTAURANT_NAMES[tenantId as RestaurantId] 
+      : null;
+    
     return await db.restaurant.create({
       data: {
         pin,
-        name: RESTAURANT_NAMES[tenantId],
+        name: restaurantName,
         alertDaysBeforeExpiry: 3,
         alertDaysBeforeExpiryMP: 3,
         alertDaysBeforeExpiryTransformado: 1,
@@ -88,27 +93,29 @@ export async function getRestaurantByTenantId(tenantId: RestaurantId | string) {
   }
 
   // Fallback: try to find by name (for backward compatibility)
-  let restaurant = await db.restaurant.findFirst({
-    where: {
-      name: RESTAURANT_NAMES[tenantId],
-    },
-    include: {
-      categories: true,
-      locations: true,
-    },
-  });
+  // Only if tenantId is a valid RestaurantId
+  if (RESTAURANT_IDS.includes(tenantId as RestaurantId)) {
+    let restaurant = await db.restaurant.findFirst({
+      where: {
+        name: RESTAURANT_NAMES[tenantId as RestaurantId],
+      },
+      include: {
+        categories: true,
+        locations: true,
+      },
+    });
 
-  if (restaurant) return restaurant;
+    if (restaurant) return restaurant;
 
-  // Last resort: create with a default PIN
-  const defaultPin = Object.keys(PIN_TO_RESTAURANT).find(
-    (p) => PIN_TO_RESTAURANT[p] === tenantId
-  ) || "0000";
+    // Last resort: create with a default PIN
+    const defaultPin = Object.keys(PIN_TO_RESTAURANT).find(
+      (p) => PIN_TO_RESTAURANT[p] === tenantId
+    ) || "0000";
 
-  return await db.restaurant.create({
-    data: {
-      pin: defaultPin,
-      name: RESTAURANT_NAMES[tenantId],
+    return await db.restaurant.create({
+      data: {
+        pin: defaultPin,
+        name: RESTAURANT_NAMES[tenantId as RestaurantId],
       alertDaysBeforeExpiry: 3,
       alertDaysBeforeExpiryMP: 3,
       alertDaysBeforeExpiryTransformado: 1,
