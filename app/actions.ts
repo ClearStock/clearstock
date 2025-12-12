@@ -418,10 +418,13 @@ export async function deleteCategory(categoryId: string) {
     const tenantId = await getRestaurantIdFromCookie();
     if (!tenantId) throw new Error("Não autenticado");
 
+    // Get restaurant to ensure it exists and get its ID
+    const restaurant = await getRestaurantByTenantId(tenantId);
+
     await db.category.delete({
       where: { 
         id: categoryId,
-        restaurant: { name: RESTAURANT_NAMES[tenantId] },
+        restaurantId: restaurant.id,
       },
     });
 
@@ -439,10 +442,13 @@ export async function deleteLocation(locationId: string) {
     const tenantId = await getRestaurantIdFromCookie();
     if (!tenantId) throw new Error("Não autenticado");
 
+    // Get restaurant to ensure it exists and get its ID
+    const restaurant = await getRestaurantByTenantId(tenantId);
+
     await db.location.delete({
       where: { 
         id: locationId,
-        restaurant: { name: RESTAURANT_NAMES[tenantId] },
+        restaurantId: restaurant.id,
       },
     });
 
