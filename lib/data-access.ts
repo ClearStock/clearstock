@@ -141,6 +141,10 @@ export async function getRestaurantByTenantId(tenantId: RestaurantId | string) {
       locations: true,
     },
   });
+  }
+
+  // If we get here and tenantId is not a valid RestaurantId, throw an error
+  throw new Error(`Restaurant not found for tenantId: ${tenantId}`);
 }
 
 /**
