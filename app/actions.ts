@@ -346,6 +346,9 @@ export async function updateCategoryAlert(categoryId: string, formData: FormData
     const tenantId = await getRestaurantIdFromCookie();
     if (!tenantId) throw new Error("Não autenticado");
 
+    // Get restaurant to ensure it exists and get its ID
+    const restaurant = await getRestaurantByTenantId(tenantId);
+
     const warningRaw = formData.get("warningDays");
     const urgentRaw = formData.get("alertDays");
 
@@ -362,7 +365,7 @@ export async function updateCategoryAlert(categoryId: string, formData: FormData
     await db.category.update({
       where: { 
         id: categoryId,
-        restaurant: { name: RESTAURANT_NAMES[tenantId] },
+        restaurantId: restaurant.id,
       },
       data: {
         warningDaysBeforeExpiry: warning,
@@ -839,11 +842,14 @@ export async function adjustBatchQuantity(batchId: string, adjustment: number) {
       };
     }
 
+    // Get restaurant to ensure it exists and get its ID
+    const restaurant = await getRestaurantByTenantId(tenantId);
+
     // Get current batch
     const batch = await db.productBatch.findFirst({
       where: {
         id: batchId,
-        restaurant: { name: RESTAURANT_NAMES[tenantId] },
+        restaurantId: restaurant.id,
       },
     });
 
