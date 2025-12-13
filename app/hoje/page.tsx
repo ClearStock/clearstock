@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { AuthGuard } from "@/components/auth-guard";
 import DashboardContent from "@/components/dashboard-content";
-import { isValidRestaurantIdentifier, type RestaurantId } from "@/lib/auth";
-import { getRestaurantByTenantId } from "@/lib/data-access";
+import { requireAuth } from "@/lib/auth-pages";
+import { getAuthenticatedRestaurantId } from "@/lib/auth-server";
+import type { RestaurantId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,29 +11,19 @@ export const dynamic = "force-dynamic";
  * Redirects to /acesso if not authenticated
  */
 export default async function HojePage() {
-  // Check authentication via cookie (set by client)
-  const cookieStore = await cookies();
-  const restaurantId = cookieStore.get("clearstock_restaurantId")?.value;
+  // Require authentication - redirects if not authenticated
+  const restaurant = await requireAuth();
+  
+  // Check for expired batches and register WASTE events
+  const { checkAndRegisterExpiredBatches } = await import("@/app/actions");
+  await checkAndRegisterExpiredBatches(restaurant.id);
 
-  if (!restaurantId || !isValidRestaurantIdentifier(restaurantId)) {
-    redirect("/acesso");
-  }
+  // Get restaurantId for DashboardContent (can be RestaurantId or restaurant.id)
+  const restaurantId = await getAuthenticatedRestaurantId();
 
-  try {
-    const restaurant = await getRestaurantByTenantId(restaurantId);
-    
-    // Check for expired batches and register WASTE events
-    const { checkAndRegisterExpiredBatches } = await import("@/app/actions");
-    await checkAndRegisterExpiredBatches(restaurant.id);
-
-    return (
-      <AuthGuard>
-        <DashboardContent restaurantId={restaurantId as RestaurantId} />
-      </AuthGuard>
-    );
-  } catch (error) {
-    console.error("Error loading hoje page:", error);
-    redirect("/acesso");
-  }
+  return (
+    <AuthGuard>
+      <DashboardContent restaurantId={restaurantId as RestaurantId | string} />
+    </AuthGuard>
+  );
 }
-

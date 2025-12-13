@@ -1,23 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getRestaurantByTenantId, getUser, getRestaurantByPin } from "@/lib/data-access";
 import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, normalizePIN, type RestaurantId, isValidRestaurantIdentifier } from "@/lib/auth";
+import { createSession, setSessionCookie, getAuthenticatedRestaurantId } from "@/lib/auth-server";
 
 /**
- * Helper to get restaurantId from cookies in server actions
+ * Helper to get restaurantId from authenticated session
+ * This is the centralized authentication check - use this everywhere
  */
-async function getRestaurantIdFromCookie(): Promise<RestaurantId | string | null> {
-  const cookieStore = await cookies();
-  const restaurantId = cookieStore.get("clearstock_restaurantId")?.value;
-  
-  if (restaurantId && isValidRestaurantIdentifier(restaurantId)) {
-    return restaurantId;
-  }
-  
-  return null;
+async function getRestaurantIdFromSession(): Promise<string | null> {
+  return await getAuthenticatedRestaurantId();
 }
 
 // Simple in-memory cache to throttle checkAndRegisterExpiredBatches calls
@@ -87,7 +81,7 @@ export async function checkAndRegisterExpiredBatches(restaurantId: string) {
 }
 
 export async function updateSettings(formData: FormData) {
-  const tenantId = await getRestaurantIdFromCookie();
+  const tenantId = await getRestaurantIdFromSession();
   if (!tenantId) throw new Error("Não autenticado");
 
   const restaurant = await getRestaurantByTenantId(tenantId);
@@ -126,18 +120,8 @@ export async function validatePinAndLogin(pin: string) {
     // Normalize PIN (handle 4-digit backward compatibility)
     const normalizedPin = normalizePIN(trimmedPin);
     
-    console.log("[validatePinAndLogin] Input PIN:", pin);
-    console.log("[validatePinAndLogin] Trimmed PIN:", trimmedPin);
-    console.log("[validatePinAndLogin] Normalized PIN:", normalizedPin);
-    
     // Get restaurant by PIN
     const restaurant = await getRestaurantByPin(normalizedPin);
-    
-    console.log("[validatePinAndLogin] Restaurant found:", restaurant ? "yes" : "no");
-    if (restaurant) {
-      console.log("[validatePinAndLogin] Restaurant ID:", restaurant.id);
-      console.log("[validatePinAndLogin] Restaurant PIN:", restaurant.pin);
-    }
     
     if (!restaurant) {
       return {
@@ -146,23 +130,11 @@ export async function validatePinAndLogin(pin: string) {
       };
     }
 
-    // Get the tenant ID from PIN mapping (for cookie compatibility)
-    // If PIN is not in the mapping, use the restaurant ID as fallback
-    let tenantId: string = PIN_TO_RESTAURANT[normalizedPin] || restaurant.id;
+    // Create server-side session
+    const sessionToken = await createSession(restaurant.id);
     
-    console.log("[validatePinAndLogin] Tenant ID:", tenantId);
-    console.log("[validatePinAndLogin] PIN in mapping:", PIN_TO_RESTAURANT[normalizedPin] ? "yes" : "no");
-    
-    // For new PINs not in the mapping, use the restaurant ID directly
-    // This allows new PINs to work without being in the static mapping
-
-    // Set cookie for server components
-    const cookieStore = await cookies();
-    cookieStore.set("clearstock_restaurantId", tenantId, {
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      sameSite: "lax",
-    });
+    // Set secure session cookie (httpOnly, secure, sameSite)
+    await setSessionCookie(sessionToken);
 
     return {
       success: true,
@@ -183,9 +155,15 @@ export async function validatePinAndLogin(pin: string) {
   }
 }
 
+export async function logout() {
+  const { clearSession } = await import("@/lib/auth-server");
+  await clearSession();
+  return { success: true };
+}
+
 export async function updateRestaurantName(formData: FormData) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) {
       return {
         success: false,
@@ -232,7 +210,7 @@ export async function updateRestaurantName(formData: FormData) {
 
 export async function createCategory(formData: FormData) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) {
       return {
         success: false,
@@ -296,7 +274,7 @@ export async function createCategory(formData: FormData) {
 
 export async function createLocation(formData: FormData) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) {
       return {
         success: false,
@@ -356,7 +334,7 @@ export async function createLocation(formData: FormData) {
 
 export async function updateCategoryAlert(categoryId: string, formData: FormData) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) throw new Error("Não autenticado");
 
     // Get restaurant to ensure it exists and get its ID
@@ -431,7 +409,7 @@ export async function deleteLocationById(formData: FormData) {
 
 export async function deleteCategory(categoryId: string) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) throw new Error("Não autenticado");
 
     // Get restaurant to ensure it exists and get its ID
@@ -455,7 +433,7 @@ export async function deleteCategory(categoryId: string) {
 
 export async function deleteLocation(locationId: string) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) throw new Error("Não autenticado");
 
     // Get restaurant to ensure it exists and get its ID
@@ -483,7 +461,7 @@ export async function deleteLocation(locationId: string) {
  */
 export async function createProductBatch(formData: FormData) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) {
       return {
         success: false,
@@ -606,7 +584,7 @@ export async function createProductBatch(formData: FormData) {
 
 export async function updateProductBatch(batchId: string, formData: FormData) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) throw new Error("Não autenticado");
 
     if (!batchId) {
@@ -769,7 +747,7 @@ export async function updateProductBatch(batchId: string, formData: FormData) {
  * IMPORTANT: This does NOT create a WASTE event - use markAsWaste() for actual waste
  */
 export async function deleteProductBatch(batchId: string) {
-  const tenantId = await getRestaurantIdFromCookie();
+  const tenantId = await getRestaurantIdFromSession();
   if (!tenantId) throw new Error("Não autenticado");
 
   // Simply delete the batch - no WASTE event is created
@@ -790,7 +768,7 @@ export async function deleteProductBatch(batchId: string) {
  * Creates a WASTE event in the history before deleting the batch
  */
 export async function markAsWaste(batchId: string) {
-  const tenantId = await getRestaurantIdFromCookie();
+  const tenantId = await getRestaurantIdFromSession();
   if (!tenantId) throw new Error("Não autenticado");
 
   // Get batch info before deleting to register WASTE event
@@ -847,7 +825,7 @@ export async function markAsWaste(batchId: string) {
  */
 export async function adjustBatchQuantity(batchId: string, adjustment: number) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) {
       return {
         success: false,
@@ -913,7 +891,7 @@ export async function adjustBatchQuantity(batchId: string, adjustment: number) {
  */
 export async function getStockEventsForMonthAction(year: number, month: number) {
   try {
-    const tenantId = await getRestaurantIdFromCookie();
+    const tenantId = await getRestaurantIdFromSession();
     if (!tenantId) {
       return {
         success: false,

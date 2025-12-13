@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ConditionalNav } from "@/components/conditional-nav";
-import { SyncAuthCookie } from "@/components/sync-auth-cookie";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
@@ -24,7 +23,6 @@ export default function RootLayout({
   return (
     <html lang="pt">
       <body className={cn(inter.className, "min-h-screen bg-background font-sans antialiased")}>
-        <SyncAuthCookie />
         <div className="relative flex min-h-screen flex-col">
           <ConditionalNav />
           {/* Mobile-first container: max-w-3xl on desktop, full width on mobile */}

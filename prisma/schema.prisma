@@ -23,6 +23,7 @@ model Restaurant {
   productTemplates ProductTemplate[]
   supportMessages  SupportMessage[]
   stockEvents      StockEvent[]
+  sessions         Session[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -166,10 +167,24 @@ model StockEvent {
   productName  String
   quantity     Float
   unit         String         @default("un")
-  batchId      String?        // Optional reference to ProductBatch for tracking
+  batchId      String? // Optional reference to ProductBatch for tracking
   createdAt    DateTime       @default(now())
 
   @@index([restaurantId, createdAt])
   @@index([restaurantId, type, createdAt])
   @@index([batchId])
+}
+
+model Session {
+  id           String     @id @default(cuid())
+  token        String     @unique // Opaque session token stored in cookie
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+  lastUsedAt   DateTime   @default(now())
+
+  @@index([token])
+  @@index([restaurantId])
+  @@index([expiresAt])
 }

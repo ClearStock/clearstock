@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "test:db": "tsx scripts/test-db-connection.ts"
+    "test:db": "tsx scripts/test-db-connection.ts",
+    "cleanup:sessions": "tsx scripts/cleanup-expired-sessions.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.19.0",

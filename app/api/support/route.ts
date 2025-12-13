@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getRestaurantByTenantId } from "@/lib/data-access";
-import { isValidRestaurantIdentifier } from "@/lib/auth";
+import { getAuthenticatedRestaurantId } from "@/lib/auth-server";
 import { sendSupportEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +16,10 @@ interface SupportRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
-    const cookieStore = await cookies();
-    const restaurantIdCookie = cookieStore.get("clearstock_restaurantId")?.value;
+    // Verify authentication using centralized helper
+    const restaurantId = await getAuthenticatedRestaurantId();
 
-    if (!restaurantIdCookie || !isValidRestaurantIdentifier(restaurantIdCookie)) {
+    if (!restaurantId) {
       return NextResponse.json(
         { ok: false, error: "Não autenticado" },
         { status: 401 }
@@ -31,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body: SupportRequest = await request.json();
-    const { type, message, contact, restaurantId } = body;
+    const { type, message, contact, restaurantId: bodyRestaurantId } = body;
 
     // Validate fields
     if (!type || !["bug", "suggestion", "question", "other"].includes(type)) {
@@ -55,13 +52,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify restaurant exists and matches authenticated user
-    const restaurant = await getRestaurantByTenantId(restaurantIdCookie);
-    
-    if (restaurant.id !== restaurantId) {
+    // Verify restaurant ID matches authenticated session
+    if (restaurantId !== bodyRestaurantId) {
       return NextResponse.json(
         { ok: false, error: "Restaurante não corresponde à autenticação" },
         { status: 403 }
+      );
+    }
+
+    // Get restaurant for email
+    const restaurant = await db.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, name: true, pin: true },
+    });
+
+    if (!restaurant) {
+      return NextResponse.json(
+        { ok: false, error: "Restaurante não encontrado" },
+        { status: 404 }
       );
     }
 
@@ -107,4 +115,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

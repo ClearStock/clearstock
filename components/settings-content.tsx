@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { updateSettings, createCategory, createLocation, updateCategoryAlertById, deleteCategoryById, deleteLocationById, updateRestaurantName } from "@/app/actions";
+import { updateSettings, createCategory, createLocation, updateCategoryAlertById, deleteCategoryById, deleteLocationById, updateRestaurantName, logout } from "@/app/actions";
 import { Trash2, LogOut } from "lucide-react";
 import { toast } from "sonner";
-import { clearAuth } from "@/lib/auth";
 import type { Restaurant, Category, Location } from "@prisma/client";
 
 interface SettingsContentProps {
@@ -76,10 +75,17 @@ export default function SettingsContent({ restaurant }: SettingsContentProps) {
     });
   };
 
-  const handleLogout = () => {
-    clearAuth();
-    toast.success("Sessão terminada com sucesso");
-    router.push("/acesso");
+  const handleLogout = async () => {
+    startTransition(async () => {
+      try {
+        await logout();
+        toast.success("Sessão terminada com sucesso");
+        router.push("/acesso");
+      } catch (error) {
+        console.error("Error logging out:", error);
+        toast.error("Erro ao terminar sessão");
+      }
+    });
   };
 
   return (

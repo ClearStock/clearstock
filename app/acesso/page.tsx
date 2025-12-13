@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { validatePinAndLogin, getRestaurantNameByPin } from "@/app/actions";
-import { setAuth, PIN_TO_RESTAURANT, hasValidSession, normalizePIN, clearAuth, type RestaurantId } from "@/lib/auth";
+import { normalizePIN } from "@/lib/auth";
 import { Lock } from "lucide-react";
 
 const MAX_ATTEMPTS = 5;
@@ -15,6 +15,7 @@ const LOCKOUT_DURATION = 60 * 1000; // 60 seconds in milliseconds
 
 /**
  * Access page - PIN entry for restaurant authentication
+ * Authentication is now fully server-side - no localStorage manipulation
  */
 export default function AccessPage() {
   const router = useRouter();
@@ -25,43 +26,6 @@ export default function AccessPage() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
-  const hasCheckedSessionRef = useRef(false);
-
-  // Check for valid session on mount (only once)
-  // CRITICAL FIX: Use ref instead of state to prevent re-renders and loops
-  useEffect(() => {
-    // Only check once on mount, avoid loops
-    if (hasCheckedSessionRef.current) {
-      console.log("[AccessPage] Session already checked, skipping");
-      return;
-    }
-    
-    const checkSession = () => {
-      try {
-        if (typeof window !== "undefined" && hasValidSession()) {
-          console.log("[AccessPage] Valid session found, redirecting to /hoje");
-          hasCheckedSessionRef.current = true;
-          // Use replace to avoid adding to history and prevent loops
-          router.replace("/hoje");
-        } else {
-          console.log("[AccessPage] No valid session, staying on access page");
-          hasCheckedSessionRef.current = true;
-        }
-      } catch (error) {
-        console.error("[AccessPage] Error checking session:", error);
-        // If there's an error, clear session and stay on access page
-        if (typeof window !== "undefined") {
-          clearAuth();
-        }
-        hasCheckedSessionRef.current = true;
-      }
-    };
-    
-    // Small delay to ensure localStorage is ready and avoid hydration issues
-    const timeoutId = setTimeout(checkSession, 200);
-    return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount - router is stable
 
   // Check if PIN has a restaurant name when PIN is 6 digits
   useEffect(() => {
@@ -125,7 +89,7 @@ export default function AccessPage() {
     // Normalize PIN (handle 4-digit backward compatibility)
     const normalizedPin = normalizePIN(pin);
     
-    // Validate PIN via server action
+    // Validate PIN via server action (creates server-side session)
     const result = await validatePinAndLogin(normalizedPin);
 
     if (!result.success) {
@@ -147,19 +111,8 @@ export default function AccessPage() {
     // Success - reset failed attempts
     setFailedAttempts(0);
 
-    // Get restaurant ID from PIN mapping for localStorage (for legacy PINs)
-    // For new PINs, use the restaurant ID from the server response
-    const restaurantId = PIN_TO_RESTAURANT[normalizedPin] as RestaurantId | undefined || result.restaurant?.id;
-    
-    if (!restaurantId) {
-      setError("PIN não está associado a um restaurante válido.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Set authentication in localStorage with session
-    // For new PINs, restaurantId will be the restaurant.id (string), which is fine
-    setAuth(restaurantId as RestaurantId, normalizedPin);
+    // Server has already set the secure session cookie
+    // No client-side authentication state needed
 
     // Small delay for better UX
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -181,29 +134,27 @@ export default function AccessPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-8">
-      {/* Mobile-first card: full width on mobile, max-w-sm on desktop with better spacing */}
-      <Card className="w-full max-w-sm bg-white rounded-xl shadow-md mt-8">
-        <CardHeader className="space-y-2 text-center pb-4">
-          <div className="mx-auto mb-3 rounded-full bg-primary/10 p-3 md:p-4">
-            <Lock className="h-6 w-6 md:h-7 md:w-7 text-primary" />
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Lock className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl md:text-2xl font-bold">Acesso Clearstock</CardTitle>
-          <CardDescription className="text-sm md:text-base">
+          <CardTitle className="text-2xl font-bold">Acesso</CardTitle>
+          <CardDescription>
             Introduza o PIN de 6 dígitos do seu restaurante.
           </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
           {restaurantName && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-700 text-center">
-              PIN associado a: <span className="font-semibold">{restaurantName}</span>
+            <div className="mt-2 rounded-md bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">PIN associado a: </span>
+              <span className="font-medium">{restaurantName}</span>
             </div>
           )}
-          
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="pin" className="text-sm font-medium">PIN (6 dígitos)</Label>
-              {/* Large PIN input for easy mobile entry */}
               <Input
                 id="pin"
                 type="text"
@@ -213,32 +164,26 @@ export default function AccessPage() {
                 onChange={handlePinChange}
                 placeholder="000000"
                 maxLength={6}
-                className="text-center text-2xl md:text-3xl tracking-widest h-14 md:h-16"
+                className="text-center text-2xl tracking-widest h-14"
                 autoFocus
                 disabled={isSubmitting || isLocked}
-                required
+                autoComplete="off"
               />
             </div>
 
             {error && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
             )}
 
-            {isLocked && lockoutTimeLeft > 0 && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700 text-center">
-                Tente novamente em {Math.ceil(lockoutTimeLeft / 1000)} segundos.
-              </div>
-            )}
-
-            {/* Full-width button with indigo styling */}
             <Button
               type="submit"
-              className="w-full bg-indigo-600 text-white rounded-lg py-3 px-4 shadow-md hover:bg-indigo-700 h-11 md:h-12 text-base md:text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-indigo-600 text-white rounded-lg py-3 px-4 shadow-md hover:bg-indigo-700 font-semibold text-base"
+              size="lg"
               disabled={isSubmitting || isLocked || pin.length !== 6}
             >
-              {isSubmitting ? "A verificar..." : isLocked ? "Bloqueado" : "Entrar"}
+              {isSubmitting ? "A verificar..." : isLocked ? `Aguarde ${Math.ceil(lockoutTimeLeft / 1000)}s` : "Entrar"}
             </Button>
           </form>
         </CardContent>
@@ -246,4 +191,3 @@ export default function AccessPage() {
     </div>
   );
 }
-

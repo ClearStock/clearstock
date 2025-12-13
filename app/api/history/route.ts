@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getRestaurantByTenantId } from "@/lib/data-access";
-import { isValidRestaurantIdentifier } from "@/lib/auth";
+import { getAuthenticatedRestaurantId } from "@/lib/auth-server";
 import { startOfMonth, endOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const restaurantIdCookie = cookieStore.get("clearstock_restaurantId")?.value;
+    // Verify authentication using centralized helper
+    const restaurantId = await getAuthenticatedRestaurantId();
 
-    if (!restaurantIdCookie || !isValidRestaurantIdentifier(restaurantIdCookie)) {
+    if (!restaurantId) {
       return NextResponse.json({ ok: false, error: "Não autenticado" }, { status: 401 });
     }
 
-    const restaurant = await getRestaurantByTenantId(restaurantIdCookie);
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get("month");
 
@@ -39,12 +36,12 @@ export async function GET(request: NextRequest) {
     const startDate = startOfMonth(new Date(year, month - 1, 1));
     const endDate = endOfMonth(new Date(year, month - 1, 1));
 
-    console.log(`[API History] Fetching events for restaurant ${restaurant.id}, month ${year}-${month}, range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`[API History] Fetching events for restaurant ${restaurantId}, month ${year}-${month}, range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Fetch events for the date range
     const events = await db.stockEvent.findMany({
       where: {
-        restaurantId: restaurant.id,
+        restaurantId: restaurantId,
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -76,4 +73,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
