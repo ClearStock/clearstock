@@ -1,13 +1,14 @@
 import { db } from "@/lib/db"
-import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, type RestaurantId } from "@/lib/auth"
+import { RESTAURANT_NAMES, RESTAURANT_IDS, PIN_TO_RESTAURANT, normalizePIN, type RestaurantId } from "@/lib/auth"
 
 /**
  * Get restaurant by PIN
  */
 export async function getRestaurantByPin(pin: string) {
   const trimmedPin = pin.trim();
+  const normalizedPin = normalizePIN(trimmedPin);
   const restaurant = await db.restaurant.findUnique({
-    where: { pin: trimmedPin },
+    where: { pin: normalizedPin },
     include: {
       categories: true,
       locations: true,
