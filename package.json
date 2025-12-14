@@ -9,7 +9,10 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "test:db": "tsx scripts/test-db-connection.ts",
-    "cleanup:sessions": "tsx scripts/cleanup-expired-sessions.ts"
+    "cleanup:sessions": "tsx scripts/cleanup-expired-sessions.ts",
+    "migrate:setup": "tsx scripts/setup-new-supabase.ts",
+    "migrate:data": "tsx scripts/migrate-to-new-supabase.ts",
+    "migrate:all": "npm run migrate:setup && npm run migrate:data"
   },
   "dependencies": {
     "@prisma/client": "^5.19.0",
